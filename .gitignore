@@ -1,0 +1,17 @@
+# Ignorar o ambiente virtual (dependências pesadas)
+venv/
+env/
+
+# Ignorar o arquivo de variáveis de ambiente
+.env
+
+# Ignorar arquivos temporários e cache gerados pelo próprio Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignorar pastas de editores de código (como o VS Code)
+.vscode/
+.idea/
+
+database_password.txt
