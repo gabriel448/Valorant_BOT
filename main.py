@@ -91,8 +91,10 @@ async def monitoramento_continuo():
                 await atualizar_match_id(puuid, novo_match_id)
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
-            
-                if dados_partida:
+                modo = dados_partida['data']['metadata']['mode']
+                if modo != "Competitive":
+                    print(f"Era apenas um {modo}")
+                elif dados_partida:
                     # Pega a duração da partida em rounds 
                     rounds_jogados = dados_partida['data']['metadata']['rounds_played']
                     
@@ -118,12 +120,12 @@ async def monitoramento_continuo():
                         # Regra 1: Gate do Zero-Kill 
                         if rounds_jogados >= 10 and kills == 0:
                             punitivo = True
-                            motivos.append(f"O pacifista jogou {rounds_jogados} rounds e fez ZERO abates. Desmond Doss se emocionaria.")
+                            motivos.append(f"O pacifista jogou {rounds_jogados} rounds e fez ZERO abates.")
                             
                         # Regra 2: Desastre de K/D 
-                        elif kd_ratio <= 0.3:
+                        elif kd_ratio <= 0.5:
                             punitivo = True
-                            motivos.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}). Totalmente desconectado do mundo terreno.")
+                            motivos.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
                         
                         # Se ele cometeu um crime contra o Valorant, enviamos a notificação [cite: 105]
                         if punitivo:
@@ -157,7 +159,8 @@ async def monitoramento_continuo():
                                 canal = await bot.fetch_channel(int(CANAL_DE_ALERTA_ID))
                                 
                                 # Enviamos o "ping" (content) solto para o Discord apitar, e anexamos o embed
-                                await canal.send(content=f"<@{discord_id}>", embed=embed)
+                                cargo = 1485793489332731985
+                                await canal.send(content=f"<@{discord_id}> <@&{cargo}>", embed=embed)
                                 print(f"Notificação visual enviada para {nome_jogador}!")
                                 canal = await bot.fetch_channel(int(CANAL_DE_ALERTA_ID))
 
