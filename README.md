@@ -34,8 +34,6 @@ A infraestrutura utiliza o **PostgreSQL** para garantir a integridade dos dados 
 ### 4. Consumo de REST APIs e Manipulação de JSON
 Desenvolvimento de métodos de extração precisos para navegar em grandes árvores de dados JSON, decodificando atributos específicos (K/D/A, Econ Rating, Rounds Played) e lidando com paginação e formatação segura de URLs (URL Encoding).
 
-## ⚙️ Como executar localmente
 
-1. Clone este repositório:
-   ```bash
-   git clone [https://github.com/SeuUsuario/bot-valorant-zoeira.git](https://github.com/SeuUsuario/bot-valorant-zoeira.git)
+  
+
