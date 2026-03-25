@@ -91,7 +91,10 @@ async def monitoramento_continuo():
                 await atualizar_match_id(puuid, novo_match_id)
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
-                modo = dados_partida['data']['metadata']['mode']
+                try:
+                    modo = dados_partida['data']['metadata']['mode']
+                except:
+                    modo = None
                 if modo != "Competitive":
                     print(f"Era apenas um {modo}")
                 elif dados_partida:
@@ -143,7 +146,7 @@ async def monitoramento_continuo():
                                 # O hexadecimal 0xFF0000 é a cor vermelha (código cromático punitivo)
                                 embed = discord.Embed(
                                     title="🚨 ALERTA DE BAGRE 🚨",
-                                    description=f"O baiter do {nome_jogador} jogou de **{nome_agente}** numa {mapa} se liga na lenda.",
+                                    description=f"O baiter do {nome_jogador} jogou de **{nome_agente}** numa **{mapa}** se liga na lenda.",
                                     color=0xFF0000 
                                 )
                                 
@@ -175,6 +178,7 @@ async def monitoramento_continuo():
                                 print("Erro: O bot não tem permissão para enviar mensagens nesse canal.")
                         else:
                             print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
+                        await asyncio.sleep(28)
                     
             else:
                 # Nenhuma partida nova ocorreu
