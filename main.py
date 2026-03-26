@@ -301,13 +301,10 @@ async def monitoramento_continuo():
                                 msg = StringIO()
                                 for m in motivos:
                                     msg.write(f"- {m}\n")
+                                # Adicionando os campos de texto com as estatísticas
                                 embed.add_field(name="Ficha Criminal (Dados Frios):", value=msg.getvalue(), inline=False)
                                 embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
 
-                                # Adicionando os campos de texto com as estatísticas
-                                embed.add_field(name="Proezas:", value=msg.getvalue(), inline=False)
-                                embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
-                                
                                 # Injetando as imagens
                                 embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
                                 embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
@@ -342,7 +339,7 @@ async def monitoramento_continuo():
                                 print("Erro: O bot não tem permissão para enviar mensagens nesse canal.")
                         else:
                             print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
-                        await asyncio.sleep(28)
+                        await asyncio.sleep(25)
                     
             else:
                 # Nenhuma partida nova ocorreu
