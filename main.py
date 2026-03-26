@@ -7,7 +7,7 @@ from io import StringIO
 from discord import app_commands
 
 from msg import gerar_humilhacao
-from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from database import iniciar_banco, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida
 
 #pega o token do bot
@@ -86,6 +86,60 @@ async def ativar_esse_canal_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message("❌ Você não tem permissão de administrador para usar este comando!", ephemeral=True)
 
+@bot.tree.command(name="patch-notes", description="[DEV] Dispara o anúncio de atualização para todos os servidores.")
+async def patch_notes(interaction: discord.Interaction):
+    # Só eu posso rodar isso
+    MEU_ID_DISCORD = 473895740960407552
+    
+    if interaction.user.id != MEU_ID_DISCORD:
+        await interaction.response.send_message("❌ Apenas o desenvolvedor supremo pode usar este comando.", ephemeral=True)
+        return
+
+    # Avisa ao Discord que o bot está "pensando"
+    await interaction.response.defer(ephemeral=True)
+    
+    # montando o embed
+    embed = discord.Embed(
+        title="📢 ATUALIZAÇÃO DO SISTEMA",
+        description="Atenção, baiters. O **Explanator** passou por uma atualização toper",
+        color=0x00FF00 
+    )
+    
+    # Adicionando o campo da Inteligência Artificial
+    embed.add_field(
+        name="🧠 IA Generativa Integrada", 
+        value="Acabaram as mensagens repetidas. Agora, o bot possui integração direta com a Inteligência Artificial do **Google Gemini**. Cada humilhação será única, tóxica e gerada em tempo real com base no seu Agente, Mapa e na gravidade da sua vergonha.", 
+        inline=False
+    )
+    
+    # Adicionando o campo das Novas Regras
+    regras = (
+        "**1. Fundo do Poço:** Perdeu 4 ranqueadas seguidas? O Explanator vai cobrar.\n"
+        "**2. Dropada de Elo:** Caiu de rank? Geral vai ficar sabendo.\n"
+        "**3. Capitão dedão:** Se 84% ou mais dos seus tiros forem no peito, você será exposto por não mirar na cabeça.\n"
+        "**4. Pacifista:** 10 rounds jogados e zero abates.\n"
+        "**5. K/D Desastroso:** Terminar a partida com K/D igual ou menor a 0.5."
+    )
+    embed.add_field(name="⚖️ Novas Leis de Punição", value=regras, inline=False)
+    
+    embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
+
+    # dispara pra todos os servidores
+    canais = await pegar_todos_canais_configurados()
+    enviados = 0
+    
+    for id_canal in canais:
+        try:
+            canal = await bot.fetch_channel(int(id_canal))
+            await canal.send(embed=embed)
+            enviados += 1
+        except discord.errors.NotFound:
+            print(f"Canal {id_canal} não encontrado.")
+        except discord.errors.Forbidden:
+            print(f"Sem permissão no canal {id_canal}.")
+            
+    # Confirmação apenas para você
+    await interaction.followup.send(f"✅ Anúncio disparado com sucesso para {enviados} servidores!")
 
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
@@ -297,7 +351,7 @@ async def monitoramento_continuo():
             
         #Dorme 2 segundos antes de olhar o próximo jogador
         # Isso salva o bot de tomar bloqueio por Rate Limit!
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
 
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':

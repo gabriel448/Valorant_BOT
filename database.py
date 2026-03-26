@@ -162,3 +162,11 @@ async def atualizar_loss_streak(riot_puuid, novo_streak):
     query = "UPDATE jogadores_monitorados SET loss_streak = $1 WHERE riot_puuid = $2"
     await conn.execute(query, novo_streak, riot_puuid)
     await conn.close()
+
+async def pegar_todos_canais_configurados():
+    """Busca o ID de todos os canais de alerta de todos os servidores."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    registros = await conn.fetch("SELECT alert_channel_id FROM configuracoes_servidor")
+    await conn.close()
+    
+    return [registro['alert_channel_id'] for registro in registros]
