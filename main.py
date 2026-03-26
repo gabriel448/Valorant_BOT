@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
 
+from msg import gerar_humilhacao
 from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida
 
@@ -169,6 +170,15 @@ async def monitoramento_continuo():
                         kills = estatisticas_alvo['stats']['kills']
                         deaths = estatisticas_alvo['stats']['deaths']
                         assists = estatisticas_alvo['stats']['assists']
+
+                        #Precisao de tiro
+                        headshots = estatisticas_alvo['stats']['headshots']
+                        bodyshots = estatisticas_alvo['stats']['bodyshots']
+                        legshots = estatisticas_alvo['stats']['legshots']
+
+                        #Prevencao de divisao por zero (caso o cara nao tenha acertado UM tiro na partida inteira)
+                        total_tiros = headshots + bodyshots + legshots
+                        porcentagem_peito = (bodyshots / total_tiros * 100) if total_tiros > 0 else 0
                         
                         # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
                         kd_ratio = kills / deaths if deaths > 0 else kills
@@ -197,7 +207,7 @@ async def monitoramento_continuo():
                         # Regra 1: Gate do Zero-Kill 
                         if rounds_jogados >= 10 and kills == 0:
                             punitivo = True
-                            motivos.append(f"O pacifista jogou {rounds_jogados} rounds e fez ZERO abates.")
+                            motivos.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
                             
                         # Regra 2: Desastre de K/D 
                         elif kd_ratio <= 0.5:
@@ -208,11 +218,14 @@ async def monitoramento_continuo():
                         if streak_atual >=4:
                             punitivo = True
                             motivos.append(f'{streak_atual} derrotas seguidas e contando')
-                        # Se ele cometeu um crime contra o Valorant, enviamos a notificação [cite: 105]
+
+                        #regra 5:
+                        if porcentagem_peito >= 84:
+                            punitivo = True
+                            motivos.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
+
+                        # se ele deve ser punido que assim seja
                         if punitivo:
-                            msg = StringIO()
-                            for motivo in motivos:
-                                msg.write(f"- {motivo}\n")
                             try:
                                 # Pescando as URLs das imagens e dados estéticos do JSON
                                 foto_agente = estatisticas_alvo['assets']['agent']['small']
@@ -220,14 +233,23 @@ async def monitoramento_continuo():
                                 nome_agente = estatisticas_alvo['character']
                                 mapa = dados_partida['data']['metadata']['map']
                                 
+                                print("Gerando texto com a IA...")
+                                texto_humilhacao = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos)
+
                                 # Criando o Quadro (Embed)
                                 # O hexadecimal 0xFF0000 é a cor vermelha (código cromático punitivo)
                                 embed = discord.Embed(
                                     title="🚨 ALERTA DE BAGRE 🚨",
-                                    description=f"O baiter do {nome_jogador} jogou de **{nome_agente}** numa **{mapa}** se liga na lenda.",
+                                    description=texto_humilhacao,
                                     color=0xFF0000 
                                 )
                                 
+                                msg = StringIO()
+                                for m in motivos:
+                                    msg.write(f"- {m}\n")
+                                embed.add_field(name="Ficha Criminal (Dados Frios):", value=msg.getvalue(), inline=False)
+                                embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
+
                                 # Adicionando os campos de texto com as estatísticas
                                 embed.add_field(name="Proezas:", value=msg.getvalue(), inline=False)
                                 embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
