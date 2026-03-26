@@ -49,26 +49,22 @@ async def obter_detalhes_partida(match_id: str):
                 print(f"Erro ao buscar detalhes da partida: {response.status}")
                 return None
 
-async def pegar_ultimo_match_id(puuid: str):
-    """
-    pega o ultimo id de uma partida (um str)
-    """
-
-    url = f"https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/br/{puuid}"
-
-    cabecalhos = {"Authorization": HENRIK_API_KEY}
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=cabecalhos) as response:
-            if response.status == 200:
-                dados = await response.json()
-
-                #a API retorna uma lista 'data'que pegamos a partida indice 0 (a mais recente) e extraimos o 'matchid' dela.
-
-                if len(dados['data']) > 0:
-                    return dados['data'][0]['metadata']['matchid']
-            print(f"Erro em capturar o ultimo matchID -- PUUID: {puuid} STATUS: {response.status}")
-            return None
+async def pegar_partidas_recentes(puuid: str):
+        """
+        Consulta Rasa (Fase 1): Agora retorna a lista completa das últimas 5 partidas 
+        para podermos calcular o histórico do que aconteceu enquanto o bot estava offline.
+        """
+        url = f"https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/br/{puuid}"
+        cabecalhos = {"Authorization": HENRIK_API_KEY}
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=cabecalhos) as response:
+                if response.status == 200:
+                    dados = await response.json()
+                    return dados.get('data', []) # Retorna a lista de partidas
+                else:
+                    print(f'Erro ao carregar ultimas partidas: {response.status}')
+                return []
         
 async def obter_detalhes_partida(match_id: str):
     """

@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
 
-from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador
-from api import obter_puuid_henrik, pegar_ultimo_match_id, obter_detalhes_partida
+from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida
 
 #pega o token do bot
 load_dotenv()
@@ -98,8 +98,12 @@ async def monitoramento_continuo():
         discord_id = jogador['discord_user_id']
         nome_jogador = jogador['riot_game_name']
         
-        # Fazemos a Consulta Rasa na API
-        novo_match_id = await pegar_ultimo_match_id(puuid)
+        partidas_recentes = await pegar_partidas_recentes(puuid)
+        if len(partidas_recentes) == 0:
+            print('Nenhuma partida recente encontrada pela API, proximo ...')
+            continue
+
+        novo_match_id = partidas_recentes[0]['metadata']['matchid']
         
         if novo_match_id:
             #Compara se o ID mudou
@@ -107,7 +111,33 @@ async def monitoramento_continuo():
                 print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
                 print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
                 
-                # Atualiza no banco para não verificarmos de novo
+                novas_partidas = []
+                for partida in partidas_recentes:
+                    if partida['metadata']['matchid'] == ultimo_match_salvo:
+                        break #chegou onde o bot conhecia
+                    novas_partidas.append(partida)
+
+                novas_partidas.reverse()
+                streak_atual = jogador['loss_streak']
+                #Verificando as ultimas 5 partidas jogadas
+                for partida in novas_partidas:
+                    time_jogaor = None
+                    for p in partida['players']['all_players']:
+                        if p['puuid'] == puuid:
+                            time_jogador = p['team']
+                            break
+
+                    if time_jogador:
+                        venceu = partida['teams'][time_jogador]['has_won']
+                        if venceu:
+                            streak_atual = 0
+                        else:
+                            streak_atual += 1
+                
+
+
+                # Atualiza o match id e a loss streak no banco de dados
+                await atualizar_loss_streak(puuid, streak_atual)
                 await atualizar_match_id(puuid, novo_match_id)
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
@@ -128,7 +158,7 @@ async def monitoramento_continuo():
                             estatisticas_alvo = player
                             break
                     
-                    # Se achou o jogadoro na partida, vamos julgar os dados 
+                    # Se achou o jogador na partida, vamos julgar os dados 
                     if estatisticas_alvo:
                         kills = estatisticas_alvo['stats']['kills']
                         deaths = estatisticas_alvo['stats']['deaths']
@@ -152,6 +182,7 @@ async def monitoramento_continuo():
                             #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
                             await atualizar_tier_jogador(puuid, elo_atual_int)
                             print(f"[{nome_jogador}] Elo base registrado: {elo_atual_nome} ({elo_atual_int})")
+                        #regra 3
                         elif elo_atual_int < elo_banco_int:
                             punitivo = True
                             motivos.append(f'Caiu pro {elo_atual_nome} kkk')
@@ -167,6 +198,10 @@ async def monitoramento_continuo():
                             punitivo = True
                             motivos.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
                         
+                        #Regra 4: 
+                        if streak_atual >=4:
+                            punitivo = True
+                            motivos.append(f'{streak_atual} derrotas seguidas e contando')
                         # Se ele cometeu um crime contra o Valorant, enviamos a notificação [cite: 105]
                         if punitivo:
                             msg = StringIO()

@@ -153,3 +153,12 @@ async def atualizar_tier_jogador(riot_puuid, novo_tier_int):
     query = "UPDATE jogadores_monitorados SET current_tier_int = $1 WHERE riot_puuid = $2"
     await conn.execute(query, novo_tier_int, riot_puuid)
     await conn.close()
+
+async def atualizar_loss_streak(riot_puuid, novo_streak):
+    """"
+    atualiza a contagem de derrotas seguidas do jogador
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "UPDATE jogadores_monitorados SET loss_streak = $1 WHERE riot_puuid = $2"
+    await conn.execute(query, novo_streak, riot_puuid)
+    await conn.close()
