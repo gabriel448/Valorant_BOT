@@ -4,8 +4,9 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from io import StringIO
+from discord import app_commands
 
-from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id
+from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta
 from api import obter_puuid_henrik, pegar_ultimo_match_id, obter_detalhes_partida
 
 #pega o token do bot
@@ -60,11 +61,30 @@ async def cadastrar_alvo(interaction: discord.Interaction, baiter: discord.Membe
         guild_id=interaction.guild.id, 
         riot_puuid=puuid, 
         riot_game_name=nome, 
-        riot_tag_line=tag, 
-        alert_channel_id=interaction.channel.id
+        riot_tag_line=tag,
     )
     
     await interaction.followup.send(f"🎯 **baiter na mira** O jogador {baiter.mention} ({riot_id}) foi cadastrado com o PUUID e será monitorado neste canal.")
+
+
+@bot.tree.command(name="ativar-esse-canal", description="[ADMIN] Define este canal como o oficial para os Alertas de Bagre.")
+@app_commands.checks.has_permissions(administrator=True) #so adms
+async def ativar_esse_canal(interaction: discord.Interaction):
+
+    #pega o ID do server
+    id_servidor = interaction.guild.id
+    id_canal = interaction.channel.id
+
+    #salva no banco de dados
+    await configurar_canal_alerta(id_servidor, id_canal)
+
+    await interaction.response.send_message(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
+    
+@ativar_esse_canal.error
+async def ativar_esse_canal_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("❌ Você não tem permissão de administrador para usar este comando!", ephemeral=True)
+
 
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
@@ -158,14 +178,24 @@ async def monitoramento_continuo():
                                 embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
                                 embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
                                 
-                                # Buscando o canal e enviando
-                                canal = await bot.fetch_channel(int(CANAL_DE_ALERTA_ID))
-                                
-                                # Enviamos o "ping" (content) solto para o Discord apitar, e anexamos o embed
+                                canais_ids = pegar_canais_alerta_do_jogador(discord_id)
+
+                                if not canais_ids:
+                                    print(f'O jogador {nome_jogador} fez vexame, mas nenhum servidor dele tem um canal configurado')
+
                                 cargo = 1485793489332731985
-                                await canal.send(content=f"<@{discord_id}> <@&{cargo}>", embed=embed)
-                                print(f"Notificação visual enviada para {nome_jogador}!")
-                                canal = await bot.fetch_channel(int(CANAL_DE_ALERTA_ID))
+                                for id_canal in canais_ids:
+                                    try:
+                                         # Buscando o canal
+                                        canal = await bot.fetch_channel(int(id_canal))
+
+                                        # Enviamos o "ping" (content) solto para o Discord apitar, e anexamos o embed
+                                        await canal.send(content=f"<@{discord_id}> <@&{cargo}>", embed=embed)
+                                        print(f"Notificação visual enviada para {nome_jogador}!")
+                                    except discord.errors.NotFound:
+                                        print(f"Erro: O canal com ID {id_canal} foi deletado do servidor.")
+                                    except discord.erros.Forbidden:
+                                        print(f"Erro: Sem permissão para enviar mensagem no canal {id_canal}.")
 
                                 
                                 print(f"Notificação de punição enviada para {nome_jogador}!")
@@ -185,7 +215,7 @@ async def monitoramento_continuo():
                 print(f"Nenhuma nova partida para {nome_jogador}")
                 pass 
             
-        #Dorme 1.5 segundos antes de olhar o próximo jogador
+        #Dorme 2 segundos antes de olhar o próximo jogador
         # Isso salva o bot de tomar bloqueio por Rate Limit!
         await asyncio.sleep(2)
 
