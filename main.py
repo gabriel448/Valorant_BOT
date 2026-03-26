@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
 
-from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta
+from database import iniciar_banco, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador
 from api import obter_puuid_henrik, pegar_ultimo_match_id, obter_detalhes_partida
 
 #pega o token do bot
@@ -79,7 +79,7 @@ async def ativar_esse_canal(interaction: discord.Interaction):
     await configurar_canal_alerta(id_servidor, id_canal)
 
     await interaction.response.send_message(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
-    
+
 @ativar_esse_canal.error
 async def ativar_esse_canal_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
@@ -137,9 +137,26 @@ async def monitoramento_continuo():
                         # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
                         kd_ratio = kills / deaths if deaths > 0 else kills
                         
+                        #elo no jogo
+                        elo_atual_int = estatisticas_alvo['currenttier']
+                        elo_atual_nome = estatisticas_alvo['currenttier_patched']
+
+                        #elo no banco de dados
+                        elo_banco_int = jogador['current_tier_int']
+
+                        
                         punitivo = False
                         motivos = []
                         
+                        if elo_banco_int == 0:
+                            #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
+                            await atualizar_tier_jogador(puuid, elo_atual_int)
+                            print(f"[{nome_jogador}] Elo base registrado: {elo_atual_nome} ({elo_atual_int})")
+                        elif elo_atual_int < elo_banco_int:
+                            punitivo = True
+                            motivos.append(f'Caiu pro {elo_atual_nome} kkk')
+                        
+
                         # Regra 1: Gate do Zero-Kill 
                         if rounds_jogados >= 10 and kills == 0:
                             punitivo = True
@@ -178,7 +195,7 @@ async def monitoramento_continuo():
                                 embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
                                 embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
                                 
-                                canais_ids = pegar_canais_alerta_do_jogador(discord_id)
+                                canais_ids = await pegar_canais_alerta_do_jogador(discord_id)
 
                                 if not canais_ids:
                                     print(f'O jogador {nome_jogador} fez vexame, mas nenhum servidor dele tem um canal configurado')

@@ -142,4 +142,14 @@ async def pegar_canais_alerta_do_jogador(discord_user_id):
     await conn.close()
 
     #retorna uma lista limpa so com os IDs dos canais [12345, 67890, ...]
-    return [registros['alert_channel_id'] for registro in registros]
+    return [registro['alert_channel_id'] for registro in registros]
+
+async def atualizar_tier_jogador(riot_puuid, novo_tier_int):
+    """
+    Atualiza o numero inteiro que representa o elo do jogador
+    """
+
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "UPDATE jogadores_monitorados SET current_tier_int = $1 WHERE riot_puuid = $2"
+    await conn.execute(query, novo_tier_int, riot_puuid)
+    await conn.close()
