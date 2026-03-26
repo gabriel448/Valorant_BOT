@@ -79,7 +79,7 @@ async def cadastrar_alvo_bd(discord_user_id, guild_id, riot_puuid, riot_game_nam
     query_vinculo = """
     INSERT INTO jogadores_servidores (discord_user_id, guild_id)
     VALUES ($1, $2)
-    ON CONFLIT (discord_user_id, guild_id) DO NOTHING;
+    ON CONFLICT (discord_user_id, guild_id) DO NOTHING;
     """
     await conn.execute(query_vinculo, discord_user_id, guild_id)
 
@@ -109,7 +109,18 @@ async def atualizar_match_id(riot_puuid, novo_match_id):
 
 
 async def configurar_canal_alerta(guild_id, channel_id):
-    ...
+    """
+    Salva ou atualiza o canal oficial de alertas de um servidor (Upsert).
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = """
+    INSERT INTO configuracoes_servidor (guild_id, alert_channel_id)
+    VALUES ($1, $2)
+    ON CONFLICT (guild_id) DO UPDATE 
+    SET alert_channel_id = EXCLUDED.alert_channel_id;
+    """
+    await conn.execute(query, guild_id, channel_id)
+    await conn.close()
 
 async def pegar_canais_alerta_do_jogador(discord_user_id):
     """
