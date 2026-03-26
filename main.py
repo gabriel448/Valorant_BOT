@@ -121,24 +121,30 @@ async def monitoramento_continuo():
                 streak_atual = jogador['loss_streak']
                 #Verificando as ultimas 5 partidas jogadas
                 for partida in novas_partidas:
-                    time_jogaor = None
-                    for p in partida['players']['all_players']:
-                        if p['puuid'] == puuid:
-                            time_jogador = p['team']
-                            break
-
-                    if time_jogador:
-                        venceu = partida['teams'][time_jogador]['has_won']
-                        if venceu:
-                            streak_atual = 0
-                        else:
-                            streak_atual += 1
+                    if partida['metadata']['mode'] == 'Competitive':
+                        time_jogador = None
+                        for p in partida['players']['all_players']:
+                            if p['puuid'] == puuid:
+                                time_jogador = p['team']
+                                break
+                        
+                        time_minusculo = time_jogador.lower()
+                        if time_jogador:
+                            if 'has_won' in partida['teams'][time_minusculo]:
+                                venceu = partida['teams'][time_minusculo]['has_won']
+                                if venceu:
+                                    streak_atual = 0
+                                else:
+                                    streak_atual += 1
+                            else:
+                                print("Erro: 'has_won' nao eh um item de partida")
                 
 
 
                 # Atualiza o match id e a loss streak no banco de dados
                 await atualizar_loss_streak(puuid, streak_atual)
                 await atualizar_match_id(puuid, novo_match_id)
+                print(f'Match_id e loss_streak atualizados para {nome_jogador}')
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
                 try:
