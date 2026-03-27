@@ -82,4 +82,19 @@ async def obter_detalhes_partida(match_id: str):
             else:
                 print(f"Erro ao buscar detalhes da partida: {response.status}")
                 return None
+
+async def obter_mmr_jogador(puuid: str):
+    """
+    Busca o Elo (MMR) atualizado do jogador em tempo real, após a partida.
+    """
+    url = f"https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/br/{puuid}"
+    cabecalhos = {"Authorization": HENRIK_API_KEY}
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=cabecalhos) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                print(f"Erro ao buscar MMR atualizado: {response.status}")
+                return None
     

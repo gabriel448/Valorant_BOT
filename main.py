@@ -8,7 +8,7 @@ from discord import app_commands
 
 from msg import gerar_humilhacao
 from database import iniciar_banco,configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
-from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida
+from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 
 #pega o token do bot
 load_dotenv()
@@ -270,9 +270,8 @@ async def monitoramento_continuo():
                         # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
                         kd_ratio = kills / deaths if deaths > 0 else kills
                         
-                        #elo no jogo
-                        elo_atual_int = estatisticas_alvo['currenttier']
-                        elo_atual_nome = estatisticas_alvo['currenttier_patched']
+                        #elo apos o jogo
+                        dados_mmr = await obter_mmr_jogador(puuid)
 
                         #elo no banco de dados
                         elo_banco_int = jogador['current_tier_int']
@@ -281,15 +280,21 @@ async def monitoramento_continuo():
                         punitivo = False
                         motivos = []
                         
+                        if dados_mmr and 'data' in dados_mmr:
+                            elo_atual_int = dados_mmr['data']['currenttier']
+                            elo_atual_nome = dados_mmr['data']['currenttierpatched']
+
                         if elo_banco_int == 0:
                             #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
-                            await atualizar_tier_jogador(puuid, elo_atual_int)
                             print(f"[{nome_jogador}] Elo base registrado: {elo_atual_nome} ({elo_atual_int})")
-                        #regra 3
+
+                        #regra 3: cair de elo
                         elif elo_atual_int < elo_banco_int:
                             punitivo = True
                             motivos.append(f'Caiu pro {elo_atual_nome} kkk')
                         
+                        if elo_atual_int != elo_banco_int:
+                            await atualizar_tier_jogador(puuid, elo_atual_int)
 
                         # Regra 1: Gate do Zero-Kill 
                         if rounds_jogados >= 10 and kills == 0:
