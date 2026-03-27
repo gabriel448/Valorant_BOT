@@ -31,7 +31,8 @@ async def iniciar_banco():
     query_servidores = """
     CREATE TABLE IF NOT EXISTS configuracoes_servidor (
         guild_id BIGINT PRIMARY KEY,
-        alert_channel_id BIGINT NOT NULL
+        alert_channel_id BIGINT NOT NULL,
+        alert_role_id BIGINT NULL
     );
     """
 
@@ -122,17 +123,16 @@ async def configurar_canal_alerta(guild_id, channel_id):
     await conn.execute(query, guild_id, channel_id)
     await conn.close()
 
-async def pegar_canais_alerta_do_jogador(discord_user_id):
+async def pegar_canais_e_cargos_do_jogador(discord_user_id):
     """
-    Faz um JOIN entre a Tabela 3 e a Tabela 2 para descobrir todos os
-    canais de alerta espalhados pelos servidores em que este jogador está!
+    Faz um JOIN para descobrir todos os canais E cargos de alerta 
+    espalhados pelos servidores em que este jogador está.
     """
 
     conn = await asyncpg.connect(DATABASE_URL)
 
-    # Pegue o ID do canal (Tabela 2) usando os vínculos (Tabela 3)
     query = """
-    SELECT c.alert_channel_id
+    SELECT c.alert_channel_id, c.alert_role_id
     FROM jogadores_servidores js
     INNER JOIN configuracoes_servidor c ON js.guild_id = c.guild_id
     WHERE js.discord_user_id = $1;
@@ -141,8 +141,8 @@ async def pegar_canais_alerta_do_jogador(discord_user_id):
     registros = await conn.fetch(query, discord_user_id)
     await conn.close()
 
-    #retorna uma lista limpa so com os IDs dos canais [12345, 67890, ...]
-    return [registro['alert_channel_id'] for registro in registros]
+    #retorna uma lista limpa so com os IDs dos canais e dos cargos
+    return [{'canal': r['alert_channel_id'], 'cargo': r['alert_role_id']} for r in registros]
 
 async def atualizar_tier_jogador(riot_puuid, novo_tier_int):
     """
@@ -170,3 +170,21 @@ async def pegar_todos_canais_configurados():
     await conn.close()
     
     return [registro['alert_channel_id'] for registro in registros]
+
+async def configurar_cargo_alerta(guild_id, role_id):
+    """Atualiza o cargo do servidor. Retorna True se atualizou, False se o servidor não existir."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    
+    query = """
+    UPDATE configuracoes_servidor 
+    SET alert_role_id = $2 
+    WHERE guild_id = $1;
+    """
+    
+    # O execute retorna uma string de status. Ex: "UPDATE 1" (deu certo) ou "UPDATE 0" (linha não encontrada)
+    status = await conn.execute(query, guild_id, role_id)
+    await conn.close()
+    
+    return status == "UPDATE 1"
+
+

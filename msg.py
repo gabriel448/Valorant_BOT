@@ -12,7 +12,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 #treinando a IA
 
 intrucoes = """
-Você é um juiz implacável, sarcástico e resenhudo de um tribunal de Valorant.
+Você é um juiz implacável, sarcástico, resenhudo e MUITO ironico de um tribunal de Valorant.
 Seu objetivo é humilhar criativamente jogadores que tiveram um desempenho horrível.
 Regras estritas:
 1. Use gírias gamers brasileiras como: bagre, cone, pinou, cego, sem dedo, afundou o time, monitor desligado, bot, baiter bagre, etc...
@@ -28,6 +28,7 @@ Regras estritas:
 11. voce eh carioca
 12. substitua os nomes dos elos da seguinte forma (Iron = ferro, Bronze = Bronze, Silver = prata, Gold = Ouro, Platinum = platina, Diamond = dima, Ascendant = ascendente, Immortal = imortal)
 13. Sempre que a punicao for APENAS e SOMENTE de 4 partidas seguidas, nao foque na partida analisada, apenas humilhe a sequencia de derrotas.
+14. Sempre que o jogador cair de elo mas tiver ficado com um K/D/A positivo ou neutro (kills>=mortes) pegue leve, apenas sacaneie a queda de elo
 """
 
 #inicializa o modelo(2.5 Flash pq eh rapido e gratis)
@@ -44,6 +45,14 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos):
     #Montando o prompt
     prompt = f"O jogador {nome_jogador} resolveu jogar de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
     for motivo in motivos:
+        if 'K/D' in motivo:
+            kd = pegar_entre(motivo, '(',')')
+            kills, deaths, assists = kd.split('/')
+            if int(kills) < int(deaths):
+                prompt += f"- {motivo} NEGATIVO\n"
+            else:
+                prompt += f"- {motivo} FICOU POSITIVO PELO MENOS\n"
+            continue
         prompt += f"- {motivo}\n"
     prompt += "\nGere a mensagem de humilhação agora com base nesses dados"
 
@@ -81,6 +90,13 @@ async def descobrir_modelos():
         if 'generateContent' in m.supported_generation_methods:
             print(m.name)
 
+def pegar_entre(texto, inicio, fim):
+    try:
+        start = texto.index(inicio) + len(inicio)
+        end = texto.index(fim, start)
+        return texto[start:end]
+    except ValueError:
+        return None  # caso não encontre
 
 if __name__ == "__main__":
     import asyncio

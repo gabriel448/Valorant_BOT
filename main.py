@@ -7,7 +7,7 @@ from io import StringIO
 from discord import app_commands
 
 from msg import gerar_humilhacao
-from database import iniciar_banco, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_alerta_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from database import iniciar_banco,configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida
 
 #pega o token do bot
@@ -71,6 +71,7 @@ async def cadastrar_alvo(interaction: discord.Interaction, baiter: discord.Membe
 @bot.tree.command(name="ativar-esse-canal", description="[ADMIN] Define este canal como o oficial para os Alertas de Bagre.")
 @app_commands.checks.has_permissions(administrator=True) #so adms
 async def ativar_esse_canal(interaction: discord.Interaction):
+    await interaction.response.defer()
 
     #pega o ID do server
     id_servidor = interaction.guild.id
@@ -79,12 +80,17 @@ async def ativar_esse_canal(interaction: discord.Interaction):
     #salva no banco de dados
     await configurar_canal_alerta(id_servidor, id_canal)
 
-    await interaction.response.send_message(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
+    await interaction.followup.send(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
 
 @ativar_esse_canal.error
 async def ativar_esse_canal_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
-        await interaction.response.send_message("❌ Você não tem permissão de administrador para usar este comando!", ephemeral=True)
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+    else:
+        print(f"🚨 ERRO: {error}")
 
 @bot.tree.command(name="patch-notes", description="[DEV] Dispara o anúncio de atualização para todos os servidores.")
 async def patch_notes(interaction: discord.Interaction):
@@ -140,6 +146,33 @@ async def patch_notes(interaction: discord.Interaction):
             
     # Confirmação apenas para você
     await interaction.followup.send(f"✅ Anúncio disparado com sucesso para {enviados} servidores!")
+
+@bot.tree.command(name="ativar-esse-cargo", description="[ADMIN] Define qual cargo será marcado nos avisos.")
+@app_commands.describe(cargo="Selecione o cargo para ser marcado")
+@app_commands.checks.has_permissions(administrator=True)
+async def ativar_esse_cargo(interaction: discord.Interaction, cargo: discord.Role):
+    await interaction.response.defer()
+
+    id_servidor = interaction.guild.id
+    id_cargo = cargo.id
+    
+    sucesso = await configurar_cargo_alerta(id_servidor, id_cargo)
+    
+    if sucesso:
+        await interaction.followup.send(f"✅ **cargo configurado** O bot agora vai marcar o cargo {cargo.mention} nos alertas de bagre deste servidor.")
+    else:
+        await interaction.followup.send("❌ **Calma lá!** Você precisa configurar o canal primeiro usando `/ativar-esse-canal` antes de tentar definir um cargo.")
+        print("Erro: Canal não estava configurado.")
+
+@ativar_esse_cargo.error
+async def ativar_esse_cargo_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+    else:
+        print(f"🚨 ERRO: {error}")
 
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
@@ -280,63 +313,62 @@ async def monitoramento_continuo():
 
                         # se ele deve ser punido que assim seja
                         if punitivo:
-                            try:
-                                # Pescando as URLs das imagens e dados estéticos do JSON
-                                foto_agente = estatisticas_alvo['assets']['agent']['small']
-                                banner_jogador = estatisticas_alvo['assets']['card']['wide']
-                                nome_agente = estatisticas_alvo['character']
-                                mapa = dados_partida['data']['metadata']['map']
-                                
-                                print("Gerando texto com a IA...")
-                                texto_humilhacao = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos)
+                            
+                            # Pescando as URLs das imagens e dados estéticos do JSON
+                            foto_agente = estatisticas_alvo['assets']['agent']['small']
+                            banner_jogador = estatisticas_alvo['assets']['card']['wide']
+                            nome_agente = estatisticas_alvo['character']
+                            mapa = dados_partida['data']['metadata']['map']
+                            
+                            print("Gerando texto com a IA...")
+                            texto_humilhacao = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos)
 
-                                # Criando o Quadro (Embed)
-                                # O hexadecimal 0xFF0000 é a cor vermelha (código cromático punitivo)
-                                embed = discord.Embed(
-                                    title="🚨 ALERTA DE BAGRE 🚨",
-                                    description=texto_humilhacao,
-                                    color=0xFF0000 
-                                )
-                                
-                                msg = StringIO()
-                                for m in motivos:
-                                    msg.write(f"- {m}\n")
-                                # Adicionando os campos de texto com as estatísticas
-                                embed.add_field(name="Ficha Criminal (Dados Frios):", value=msg.getvalue(), inline=False)
-                                embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
+                            # Criando o Quadro (Embed)
+                            # O hexadecimal 0xFF0000 é a cor vermelha (código cromático punitivo)
+                            embed = discord.Embed(
+                                title="🚨 ALERTA DE BAGRE 🚨",
+                                description=texto_humilhacao,
+                                color=0xFF0000 
+                            )
+                            
+                            msg = StringIO()
+                            for m in motivos:
+                                msg.write(f"- {m}\n")
+                            # Adicionando os campos de texto com as estatísticas
+                            embed.add_field(name="Ficha Criminal (Dados Frios):", value=msg.getvalue(), inline=False)
+                            embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
 
-                                # Injetando as imagens
-                                embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
-                                embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
-                                
-                                canais_ids = await pegar_canais_alerta_do_jogador(discord_id)
+                            # Injetando as imagens
+                            embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
+                            embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
+                            
+                            destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
-                                if not canais_ids:
-                                    print(f'O jogador {nome_jogador} fez vexame, mas nenhum servidor dele tem um canal configurado')
+                            if not destinos:
+                                print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")
 
-                                cargo = 1485793489332731985
-                                for id_canal in canais_ids:
-                                    try:
-                                         # Buscando o canal
-                                        canal = await bot.fetch_channel(int(id_canal))
+                            for destino in destinos:
+                                id_canal = destino['canal']
+                                id_cargo = destino['cargo']
 
-                                        # Enviamos o "ping" (content) solto para o Discord apitar, e anexamos o embed
-                                        await canal.send(content=f"<@{discord_id}> <@&{cargo}>", embed=embed)
-                                        print(f"Notificação visual enviada para {nome_jogador}!")
-                                    except discord.errors.NotFound:
-                                        print(f"Erro: O canal com ID {id_canal} foi deletado do servidor.")
-                                    except discord.erros.Forbidden:
-                                        print(f"Erro: Sem permissão para enviar mensagem no canal {id_canal}.")
+                                if not id_canal:
+                                    print(f'Cargo configurado mas canal nao configurado')
+                                    continue
+                                try:
+                                    canal = await bot.fetch_channel(int(id_canal))
 
-                                
-                                print(f"Notificação de punição enviada para {nome_jogador}!")
+                                    #monta o texto de mecao de forma inteligente
+                                    texto_ping = f"<@{discord_id}>"
+                                    if id_cargo:
+                                        texto_ping += f"<@&{id_cargo}>"
                                     
-                            except discord.errors.NotFound:
-                                # Tratamento de exceção caso você tenha deletado o canal do servidor
-                                print(f"Erro: O canal com ID {CANAL_DE_ALERTA_ID} não existe mais no Discord.")
-                            except discord.errors.Forbidden:
-                                # Tratamento caso o bot não tenha permissão de ler/escrever naquele canal
-                                print("Erro: O bot não tem permissão para enviar mensagens nesse canal.")
+                                    await canal.send(content=texto_ping, embed=embed)
+                                    print(f"Notificação de punição enviada para {nome_jogador} no canal {id_canal}!!")   
+                                except discord.errors.NotFound:
+                                    print(f"Erro: O canal com ID {id_canal} foi deletado.")
+                                except discord.errors.Forbidden:
+                                    print(f"Erro: Sem permissão no canal {id_canal}.")
+                                    
                         else:
                             print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
                         await asyncio.sleep(25)
