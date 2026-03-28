@@ -121,14 +121,14 @@ async def patch_notes(interaction: discord.Interaction):
     # Campo 2: Múltiplas Personalidades da IA
     embed.add_field(
         name="🧠 Personalidade Customizável (`/modo-ia`)", 
-        value="Achou a IA muito pesada? O administrador do servidor agora pode usar o comando `/modo-ia` para alternar entre o modo **Tóxico ☢️** (sem limites e com palavrões) ou o modo **Leve 🕊️** (humor limpo e ironia family-friendly).", 
+        value="O administrador do servidor agora pode usar o comando `/modo-ia` para alternar entre o modo **Tóxico ☢️** (sem limites e com palavrões) ou o modo **Leve 🕊️** (humor limpo e ironia family-friendly).", 
         inline=False
     )
     
     # Campo 3: Remoção de Jogadores
     embed.add_field(
         name="🗑️ Novo comando Remover alvo (`/remover-alvo`)", 
-        value="Agora com o comando `/remover-alvo` (passando o Riot ID) Você pode apagar completamente a existência de um jogador do nosso banco de dados.", 
+        value="Agora com o comando `/remover-alvo` (passando o Riot ID) Você pode apagar completamente a existência de um jogador do nosso banco de dados.(caso não seja ADM, você so pode remover você mesmo)", 
         inline=False
     )
     
