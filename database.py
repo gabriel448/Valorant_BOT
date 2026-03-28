@@ -187,4 +187,31 @@ async def configurar_cargo_alerta(guild_id, role_id):
     
     return status == "UPDATE 1"
 
+async def remover_alvo_bd(nome: str, tag:str):
+    """
+    Remove o jogador de todas as tabelas do banco de dados usando o Riot ID.
+    Retorna True se deletou com sucesso, False se o jogador não existir.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
 
+    #achando o jogador no banco
+    query_busca = """
+        SELECT discord_user_id 
+        FROM jogadores_monitorados 
+        WHERE riot_game_name = $1 riot_tag_line = $2
+    """
+
+    registro = await conn.fetchrow(query_busca, nome, tag)
+
+    if not registro:
+        await conn.close()
+        return False
+    
+    discord_user_id = registro['discord_user_id']
+
+    #retirando das tabelas
+    await conn.execute("DELETE FROM jogadores_servidores WHERE discord_user_id = $1", discord_user_id)
+    await conn.execute("DELETE FROM jogadores_monitorados WHERE discord_user_id = $1", discord_user_id)
+
+    await conn.close()
+    return True

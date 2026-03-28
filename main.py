@@ -7,7 +7,7 @@ from io import StringIO
 from discord import app_commands
 
 from msg import gerar_humilhacao
-from database import iniciar_banco,configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from database import iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 
 #pega o token do bot
@@ -174,6 +174,37 @@ async def ativar_esse_cargo_error(interaction: discord.Interaction, error):
     else:
         print(f"🚨 ERRO: {error}")
 
+@bot.tree.command(name='remover-alvo', description="Remove um jogador do monitoramento do Tribunal." )
+@app_commands.describe(riot_id="O Riot ID do jogador (ex: Sacy#BR1)")
+async def remover_alvo(interaction: discord.Interaction, riot_id: str):
+    #evitando timeout
+    await interaction.response.defer()
+
+    try:
+        nome, tag = riot_id.split('#')
+    except ValueError:
+        await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
+        return
+    
+    #apaga do banco
+    sucesso = await remover_alvo_bd(nome, tag)
+
+    if sucesso:
+        await interaction.followup.send(f"✅ **Alvo Abortado!** O jogador **{riot_id}** teve seus registros apagados e não será mais explanado.")
+        print(f"Jogador {riot_id} deletado do banco de dados.")
+    else:
+        await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados. Tem certeza que o nome e a tag estão certos?")
+@remover_alvo.error
+async def remover_alvo_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+    else:
+        print(f"🚨 ERRO NO COMANDO DE REMOVER: {error}")
+
+    
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
     print("🔄 Iniciando ciclo de sondagem (Consulta Rasa)...")
@@ -259,13 +290,24 @@ async def monitoramento_continuo():
                         assists = estatisticas_alvo['stats']['assists']
 
                         #Precisao de tiro
-                        headshots = estatisticas_alvo['stats']['headshots']
-                        bodyshots = estatisticas_alvo['stats']['bodyshots']
-                        legshots = estatisticas_alvo['stats']['legshots']
+                        resumo_armas = estatisticas_alvo['behavior']['weapons']
+                        headshots_filtrados = 0
+                        bodyshots_filtrados = 0
+                        legshots_filtrados = 0
 
-                        #Prevencao de divisao por zero (caso o cara nao tenha acertado UM tiro na partida inteira)
-                        total_tiros = headshots + bodyshots + legshots
-                        porcentagem_peito = (bodyshots / total_tiros * 100) if total_tiros > 0 else 0
+                        armas_sniper = ["Operator", "Outlaw", "Marshal", "Tour De Force"]
+
+                        for arma in resumo_armas:
+                            nome_arma = arma['weapon']
+                            if nome_arma not in armas_sniper:
+                                headshots_filtrados += arma['headshots']
+                                bodyshots_filtrados += arma['bodyshots']
+                                legshots_filtrados += arma['legshots']
+
+
+                        #Prevencao de divisao por zero 
+                        total_tiros_filtrados = headshots_filtrados + bodyshots_filtrados + legshots_filtrados
+                        porcentagem_peito = (bodyshots_filtrados / total_tiros_filtrados * 100) if total_tiros_filtrados > 0 else 0
                         
                         # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
                         kd_ratio = kills / deaths if deaths > 0 else kills
