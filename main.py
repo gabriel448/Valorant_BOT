@@ -7,7 +7,7 @@ from io import StringIO
 from discord import app_commands
 
 from msg import gerar_humilhacao
-from database import iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from database import pegar_dono_do_alvo,configurar_modo_ia,iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 
 #pega o token do bot
@@ -106,27 +106,31 @@ async def patch_notes(interaction: discord.Interaction):
     
     # montando o embed
     embed = discord.Embed(
-        title="📢 ATUALIZAÇÃO DO SISTEMA",
-        description="Atenção, baiters. O **Explanator** passou por uma atualização toper",
-        color=0x00FF00 
+        title="📢 PATCH NOTES: O Explanator Ficou Mais Inteligente",
+        description="Atenção, bagres. O **Explanator** recebeu uma atualização de infraestrutura para julgar os seus crimes com ainda mais precisão.",
+        color=0x00BFFF # Azul claro/Cyan para notas de atualização
     )
     
-    # Adicionando o campo da Inteligência Artificial
+    # Campo 1: Filtro de Snipers
     embed.add_field(
-        name="🧠 IA Generativa Integrada", 
-        value="Acabaram as mensagens repetidas. Agora, o bot possui integração direta com a Inteligência Artificial do **Google Gemini**. Cada humilhação será única, tóxica e gerada em tempo real com base no seu Agente, Mapa e na gravidade da sua vergonha.", 
+        name="🎯 Buff nos Snipers (Filtro de Precisão)", 
+        value="A lei mudou: tiros de **Operator, Outlaw, Marshal e a Ult do Chamber** NÃO entram mais no cálculo da punição de 84% de tiros no peito.", 
         inline=False
     )
     
-    # Adicionando o campo das Novas Regras
-    regras = (
-        "**1. Fundo do Poço:** Perdeu 4 ranqueadas seguidas? O Explanator vai cobrar.\n"
-        "**2. Dropada de Elo:** Caiu de rank? Geral vai ficar sabendo.\n"
-        "**3. Capitão dedão:** Se 84% ou mais dos seus tiros forem no peito, você será exposto por não mirar na cabeça.\n"
-        "**4. Pacifista:** 10 rounds jogados e zero abates.\n"
-        "**5. K/D Desastroso:** Terminar a partida com K/D igual ou menor a 0.5."
+    # Campo 2: Múltiplas Personalidades da IA
+    embed.add_field(
+        name="🧠 Personalidade Customizável (`/modo-ia`)", 
+        value="Achou a IA muito pesada? O administrador do servidor agora pode usar o comando `/modo-ia` para alternar entre o modo **Tóxico ☢️** (sem limites e com palavrões) ou o modo **Leve 🕊️** (humor limpo e ironia family-friendly).", 
+        inline=False
     )
-    embed.add_field(name="⚖️ Novas Leis de Punição", value=regras, inline=False)
+    
+    # Campo 3: Remoção de Jogadores
+    embed.add_field(
+        name="🗑️ Novo comando Remover alvo (`/remover-alvo`)", 
+        value="Agora com o comando `/remover-alvo` (passando o Riot ID) Você pode apagar completamente a existência de um jogador do nosso banco de dados.", 
+        inline=False
+    )
     
     embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
 
@@ -186,14 +190,30 @@ async def remover_alvo(interaction: discord.Interaction, riot_id: str):
         await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
         return
     
+    dono_id = await pegar_dono_do_alvo(nome, tag)
+
+    if not dono_id:
+        await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados.", ephemeral=True)
+        return
+    
+    # Verifica se a pessoa executando o comando é Administradora do servidor
+    eh_admin = interaction.user.guild_permissions.administrator
+
+    # Verifica se a pessoa executando o comando é a mesma que foi cadastrada no banco
+    eh_o_dono = (interaction.user.id == dono_id)
+
+    if not (eh_admin or eh_o_dono):
+        await interaction.followup.send("❌ **Acesso Negado!** Você só pode remover a SUA PRÓPRIA conta do monitoramento (ou pedir para um Administrador fazer isso).", ephemeral=True)
+        return
     #apaga do banco
     sucesso = await remover_alvo_bd(nome, tag)
 
     if sucesso:
-        await interaction.followup.send(f"✅ **Alvo Abortado!** O jogador **{riot_id}** teve seus registros apagados e não será mais explanado.")
-        print(f"Jogador {riot_id} deletado do banco de dados.")
+        quem_removeu = "O administrador" if eh_admin and not eh_o_dono else "O próprio jogador"
+        await interaction.followup.send(f"✅ **Alvo Abortado!** {quem_removeu} removeu os registros de **{riot_id}**. Ele não será mais explanado.")
+        print(f"Jogador {riot_id} deletado do banco por {interaction.user.name}.")
     else:
-        await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados. Tem certeza que o nome e a tag estão certos?")
+        await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados. Tem certeza que o nome e a tag estão certos?", ephemeral=True)
 @remover_alvo.error
 async def remover_alvo_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
@@ -204,7 +224,28 @@ async def remover_alvo_error(interaction: discord.Interaction, error):
     else:
         print(f"🚨 ERRO NO COMANDO DE REMOVER: {error}")
 
-    
+@bot.tree.command(name="modo-ia", description="[ADMIN] Define a personalidade da IA neste servidor.")
+@app_commands.describe(nivel="Escolha o nível de toxicidade")
+@app_commands.choices(nivel=[
+    app_commands.Choice(name="1 - Tóxico / Pesado ", value=1),
+    app_commands.Choice(name="2 - Leve / Family Friendly", value=2)
+])
+@app_commands.checks.has_permissions(administrator=True)
+async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choice[int]):
+    #evitando o timeout
+    await interaction.response.defer()
+
+    id_servidor = interaction.guild.id
+    valor_escolhido = nivel.value
+
+    sucesso = await configurar_modo_ia(id_servidor,valor_escolhido)
+
+    if sucesso:
+        tipo = "TÓXICO ☢️" if valor_escolhido == 1 else "LEVE 🕊️"
+        await interaction.followup.send(f"✅ **Modo alterado!** A IA neste servidor agora operará no modo **{tipo}**.")
+    else:
+        await interaction.followup.send("❌ Você precisa configurar o `/ativar-esse-canal` primeiro!")
+
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
     print("🔄 Iniciando ciclo de sondagem (Consulta Rasa)...")
@@ -368,39 +409,48 @@ async def monitoramento_continuo():
                             mapa = dados_partida['data']['metadata']['map']
                             
                             print("Gerando texto com a IA...")
-                            texto_humilhacao = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos)
-
-                            # Criando o Quadro (Embed)
-                            # O hexadecimal 0xFF0000 é a cor vermelha (código cromático punitivo)
-                            embed = discord.Embed(
-                                title="🚨 ALERTA DE BAGRE 🚨",
-                                description=texto_humilhacao,
-                                color=0xFF0000 
-                            )
                             
                             msg = StringIO()
                             for m in motivos:
                                 msg.write(f"- {m}\n")
-                            # Adicionando os campos de texto com as estatísticas
-                            embed.add_field(name="Ficha Criminal (Dados Frios):", value=msg.getvalue(), inline=False)
-                            embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
-
-                            # Injetando as imagens
-                            embed.set_thumbnail(url=foto_agente) # Fotinha pequena no canto superior direito
-                            embed.set_image(url=banner_jogador)  # Imagem grande esticada no fundo
                             
                             destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
                             if not destinos:
                                 print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")
+                            
+                            embeds_gerados = {}
 
                             for destino in destinos:
                                 id_canal = destino['canal']
                                 id_cargo = destino['cargo']
+                                modo_ia = destino['modo_ia']
 
                                 if not id_canal:
                                     print(f'Cargo configurado mas canal nao configurado')
                                     continue
+                                
+                                if modo_ia not in embeds_gerados:
+                                    print(f"Gerando IA e montando o Embed do Modo {modo_ia} para {nome_jogador}...")
+                                    
+                                    # 1. Gera o texto na IA
+                                    texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos, modo_ia)
+                                    
+                                    # 2. Constrói o Embed UMA ÚNICA VEZ para este modo
+                                    embed = discord.Embed(
+                                        title="🚨 ALERTA DE BAGRE 🚨",
+                                        description=texto_ia,
+                                        color=0xFF0000 
+                                    )
+                                        
+                                    embed.add_field(name="Ficha Criminal:", value=msg.getvalue(), inline=False)
+                                    embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
+                                    embed.set_thumbnail(url=foto_agente)
+                                    embed.set_image(url=banner_jogador)  
+                                    
+                                    # 3. Salva o Embed prontinho no Cache!
+                                    embeds_gerados[modo_ia] = embed
+
                                 try:
                                     canal = await bot.fetch_channel(int(id_canal))
 
@@ -409,8 +459,8 @@ async def monitoramento_continuo():
                                     if id_cargo:
                                         texto_ping += f"<@&{id_cargo}>"
                                     
-                                    await canal.send(content=texto_ping, embed=embed)
-                                    print(f"Notificação de punição enviada para {nome_jogador} no canal {id_canal}!!")   
+                                    await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
+                                    print(f"Notificação de punição enviada para {nome_jogador} (Modo {modo_ia}) no canal {id_canal}!!")   
                                 except discord.errors.NotFound:
                                     print(f"Erro: O canal com ID {id_canal} foi deletado.")
                                 except discord.errors.Forbidden:

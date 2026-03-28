@@ -1,4 +1,5 @@
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import os
 from dotenv import load_dotenv
 import asyncio
@@ -11,7 +12,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 #treinando a IA
 
-intrucoes = """
+intrucoes_toxicas = """
 Você é um juiz implacável, sarcástico, resenhudo e MUITO ironico de um tribunal de Valorant.
 Seu objetivo é humilhar criativamente jogadores que tiveram um desempenho horrível.
 Regras estritas:
@@ -31,17 +32,51 @@ Regras estritas:
 14. Sempre que o jogador cair de elo mas tiver ficado com um K/D/A positivo ou neutro (kills>=mortes) pegue leve, apenas sacaneie a queda de elo
 """
 
+intrucoes_leves = """"
+Você é um narrador esportivo zueiro e irônico de Valorant.
+Seu objetivo é zoar jogadores que tiveram um desempenho horrível, mas de forma amigável.
+Regras:
+1. Use gírias como: bagre, cone, pinou, cego, mão de alface, jogou de monitor desligado.
+2. Seja irônico e engraçado, mas É ESTRITAMENTE PROIBIDO usar palavrões.
+3. Seja direto (no máximo 3 a 4 frases).
+4. Faça piada com o Agente e o Mapa sempre que possivel mas sem exagerar.
+5. Zombe da queda de elo ou da mira ruim com humor limpo ("esqueceu de ligar o mouse?", "mira no dedão do pé?").
+6. Use os dados enviados no prompt nos textos de humilhação de forma organica.
+7. "Cair" significa ser rebaixado de elo.
+8. A porcentagem significa os tiros acertados que pegaram no peito, mais de *80%* eh considerado extremamente ruim de mira
+9. o nome dos mapas sao sempre femininos (na Correde, na abyss etc...)
+10. voce eh carioca
+11. substitua os nomes dos elos da seguinte forma (Iron = ferro, Bronze = Bronze, Silver = prata, Gold = Ouro, Platinum = platina, Diamond = dima, Ascendant = ascendente, Immortal = imortal)
+12. Sempre que a punicao for APENAS e SOMENTE de 4 partidas seguidas, nao foque na partida analisada, apenas humilhe a sequencia de derrotas.
+13. Sempre que o jogador cair de elo mas tiver ficado com um K/D/A positivo ou neutro (kills>=mortes) pegue leve, apenas sacaneie a queda de elo
+"""
+
+#tirando filtros
+safety_settings_toxico = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+
 #inicializa o modelo(2.5 Flash pq eh rapido e gratis)
-modelo = genai.GenerativeModel(
+modelo_toxico = genai.GenerativeModel(
     model_name="gemini-2.5-flash",
-    system_instruction=intrucoes
+    system_instruction=intrucoes_toxicas,
+    safety_settings=safety_settings_toxico
 )
 
-async def gerar_humilhacao(nome_jogador, agente, mapa, motivos):
-    """
-    Envia os dados do vexame para a IA gerar um texto exclusivo e retorna uma str
-    """
+modelo_leve = genai.GenerativeModel(
+    model_name="gemini-2.5-flash",
+    system_instruction=intrucoes_leves
+)
 
+async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
+    """
+    gera um texto exclusivo com IA e retorna uma str
+    """
+    modelo_escolhido = modelo_toxico if modo_ia == 1 else modelo_leve
     #Montando o prompt
     prompt = f"O jogador {nome_jogador} resolveu jogar de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
     for motivo in motivos:
@@ -57,7 +92,7 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos):
     prompt += "\nGere a mensagem de humilhação agora com base nesses dados"
 
     try:
-        resposta = await modelo.generate_content_async(prompt)
+        resposta = await modelo_escolhido.generate_content_async(prompt)
         return resposta.text
     except Exception as e:
         print(f"Erro na geração da IA: {e}")

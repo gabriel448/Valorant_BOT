@@ -132,7 +132,7 @@ async def pegar_canais_e_cargos_do_jogador(discord_user_id):
     conn = await asyncpg.connect(DATABASE_URL)
 
     query = """
-    SELECT c.alert_channel_id, c.alert_role_id
+    SELECT c.alert_channel_id, c.alert_role_id, c.modo_ia
     FROM jogadores_servidores js
     INNER JOIN configuracoes_servidor c ON js.guild_id = c.guild_id
     WHERE js.discord_user_id = $1;
@@ -142,7 +142,11 @@ async def pegar_canais_e_cargos_do_jogador(discord_user_id):
     await conn.close()
 
     #retorna uma lista limpa so com os IDs dos canais e dos cargos
-    return [{'canal': r['alert_channel_id'], 'cargo': r['alert_role_id']} for r in registros]
+    return [{
+            'canal': r['alert_channel_id'], 
+            'cargo': r['alert_role_id'],
+            'modo_ia': r['modo_ia']
+        } for r in registros]
 
 async def atualizar_tier_jogador(riot_puuid, novo_tier_int):
     """
@@ -215,3 +219,27 @@ async def remover_alvo_bd(nome: str, tag:str):
 
     await conn.close()
     return True
+
+async def configurar_modo_ia (guild_id, modo_ia):
+    """Atualiza o modo de toxicidade da IA. Retorna True se sucesso."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "UPDATE configuracoes_servidor SET modo_ia = $2 WHERE guild_id = $1;"
+    status = await conn.execute(query, guild_id, modo_ia)
+    await conn.close()
+    return status == "UPDATE 1"
+
+async def pegar_dono_do_alvo(nome: str, tag: str):
+    """
+    Busca o ID do Discord de quem cadastrou esse Riot ID.
+    Retorna o ID numérico ou None se não existir.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = """
+        SELECT discord_user_id 
+        FROM jogadores_monitorados 
+        WHERE riot_game_name = $1 AND riot_tag_line = $2
+    """
+    registro = await conn.fetchrow(query, nome, tag)
+    await conn.close()
+    
+    return registro['discord_user_id'] if registro else None
