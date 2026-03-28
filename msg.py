@@ -40,7 +40,7 @@ Regras:
 2. Seja irônico e engraçado, mas É ESTRITAMENTE PROIBIDO usar palavrões.
 3. Seja direto (no máximo 3 a 4 frases).
 4. Faça piada com o Agente e o Mapa sempre que possivel mas sem exagerar.
-5. Zombe da queda de elo ou da mira ruim com humor limpo ("esqueceu de ligar o mouse?", "mira no dedão do pé?").
+5. Zombe da queda de elo ou da mira ruim com humor limpo ("esqueceu de ligar o mouse?", "mira no dedão do pé?" etc...).
 6. Use os dados enviados no prompt nos textos de humilhação de forma organica.
 7. "Cair" significa ser rebaixado de elo.
 8. A porcentagem significa os tiros acertados que pegaram no peito, mais de *80%* eh considerado extremamente ruim de mira
@@ -49,6 +49,7 @@ Regras:
 11. substitua os nomes dos elos da seguinte forma (Iron = ferro, Bronze = Bronze, Silver = prata, Gold = Ouro, Platinum = platina, Diamond = dima, Ascendant = ascendente, Immortal = imortal)
 12. Sempre que a punicao for APENAS e SOMENTE de 4 partidas seguidas, nao foque na partida analisada, apenas humilhe a sequencia de derrotas.
 13. Sempre que o jogador cair de elo mas tiver ficado com um K/D/A positivo ou neutro (kills>=mortes) pegue leve, apenas sacaneie a queda de elo
+14. Use expressoes de exagero como "jesus cristo!" "meu deus do ceu" "Ai fica dificil"
 """
 
 #tirando filtros
@@ -98,7 +99,14 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
         print(f"Erro na geração da IA: {e}")
         return f"O {nome_jogador} foi tão mal que até a IA travou de desgosto tentando ofender ele."
     
-
+def pegar_entre(texto, inicio, fim):
+    try:
+        start = texto.index(inicio) + len(inicio)
+        end = texto.index(fim, start)
+        return texto[start:end]
+    except ValueError:
+        return None  # caso não encontre
+    
 async def testar_ia():
     print("🤖 Iniciando o teste do Tribunal da IA...\n")
     
@@ -112,7 +120,7 @@ async def testar_ia():
         "**85%** dos acertos foi no peito"
     ]
     
-    resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste)
+    resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_ia=2)
     
     print("=== TEXTO GERADO PELA IA ===")
     print(resposta)
@@ -125,13 +133,7 @@ async def descobrir_modelos():
         if 'generateContent' in m.supported_generation_methods:
             print(m.name)
 
-def pegar_entre(texto, inicio, fim):
-    try:
-        start = texto.index(inicio) + len(inicio)
-        end = texto.index(fim, start)
-        return texto[start:end]
-    except ValueError:
-        return None  # caso não encontre
+
 
 if __name__ == "__main__":
     import asyncio

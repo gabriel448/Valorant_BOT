@@ -477,7 +477,7 @@ async def monitoramento_continuo():
                                     
                         else:
                             print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
-                        await asyncio.sleep(25)
+                        await asyncio.sleep(5)
                     
             else:
                 # Nenhuma partida nova ocorreu
@@ -486,7 +486,7 @@ async def monitoramento_continuo():
             
         #Dorme 2 segundos antes de olhar o próximo jogador
         # Isso salva o bot de tomar bloqueio por Rate Limit!
-        await asyncio.sleep(5)
+        await asyncio.sleep(1.5)
 
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':
