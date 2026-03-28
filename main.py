@@ -331,28 +331,37 @@ async def monitoramento_continuo():
                         assists = estatisticas_alvo['stats']['assists']
 
                         #Precisao de tiro
-                        resumo_armas = estatisticas_alvo['behavior']['weapons']
-                        headshots_filtrados = 0
-                        bodyshots_filtrados = 0
-                        legshots_filtrados = 0
-
-                        armas_sniper = ["Operator", "Outlaw", "Marshal", "Tour De Force"]
-
-                        for arma in resumo_armas:
-                            nome_arma = arma['weapon']
-                            if nome_arma not in armas_sniper:
-                                headshots_filtrados += arma['headshots']
-                                bodyshots_filtrados += arma['bodyshots']
-                                legshots_filtrados += arma['legshots']
-
+                        
+                        headshots = estatisticas_alvo['stats']['headshots']
+                        bodyshots = estatisticas_alvo['stats']['bodyshots']
+                        legshots = estatisticas_alvo['stats']['legshots']
 
                         #Prevencao de divisao por zero 
-                        total_tiros_filtrados = headshots_filtrados + bodyshots_filtrados + legshots_filtrados
-                        porcentagem_peito = (bodyshots_filtrados / total_tiros_filtrados * 100) if total_tiros_filtrados > 0 else 0
+                        total_tiros = headshots + bodyshots + legshots
+                        porcentagem_peito = (bodyshots / total_tiros * 100) if total_tiros > 0 else 0
                         
                         # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
                         kd_ratio = kills / deaths if deaths > 0 else kills
                         
+                        #logica de perdoar os snipers
+                        armas_perdoadas = ["Operator", "Outlaw", "Marshal", "Tour De Force"]
+                        kills_com_armas_perdoadas = 0
+                        kill_events = dados_partida.get('data', {}).get('kills', [])
+                        
+                        for kill in kill_events:
+                            if kill.get('killer_puuid') == puuid:
+                                arma_usada = kill.get('weapon_name')
+                                if arma_usada in armas_perdoadas:
+                                    kills_com_armas_perdoadas += 1
+
+                        e_mono_sniper = False
+                        if kills > 0:
+                            porcentagem_kills_sniper = (kills_com_armas_perdoadas/kills) * 100
+                            if porcentagem_kills_sniper >= 50:
+                                e_mono_sniper = True
+                                print(f"[{nome_jogador}] Ganhou perdao de Sniper: {porcentagem_kills_sniper:.1f}% das kills.")
+
+
                         #elo apos o jogo
                         dados_mmr = await obter_mmr_jogador(puuid)
 
@@ -395,7 +404,7 @@ async def monitoramento_continuo():
                             motivos.append(f'{streak_atual} derrotas seguidas e contando')
 
                         #regra 5:
-                        if porcentagem_peito >= 84:
+                        if porcentagem_peito >= 84 and not e_mono_sniper:
                             punitivo = True
                             motivos.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
 
