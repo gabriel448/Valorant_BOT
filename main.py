@@ -273,12 +273,18 @@ async def monitoramento_continuo():
                 
                 novas_partidas = []
                 for partida in partidas_recentes:
-                    if not partida or 'metadata' not in partida:
+                    # O .get() puxa o metadata. Se a chave não existir ou for nula, a variável vira None silenciosamente.
+                    metadata = partida.get('metadata')
+                    
+                    # Se não tem metadata, ou se tem metadata mas não tem o matchid dentro dele:
+                    if not metadata or not metadata.get('matchid'):
                         print("Aviso: A API entregou uma partida corrompida/vazia. Ignorando...")
                         continue 
                         
-                    if partida['metadata']['matchid'] == ultimo_match_salvo:
+                    # Agora temos 100% de certeza que metadata existe e tem um matchid seguro para comparar
+                    if metadata['matchid'] == ultimo_match_salvo:
                         break # chegou onde o bot conhecia
+                        
                     novas_partidas.append(partida)
 
                 novas_partidas.reverse()
