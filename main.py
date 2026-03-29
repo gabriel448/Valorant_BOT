@@ -273,8 +273,12 @@ async def monitoramento_continuo():
                 
                 novas_partidas = []
                 for partida in partidas_recentes:
+                    if not partida or 'metadata' not in partida:
+                        print("Aviso: A API entregou uma partida corrompida/vazia. Ignorando...")
+                        continue 
+                        
                     if partida['metadata']['matchid'] == ultimo_match_salvo:
-                        break #chegou onde o bot conhecia
+                        break # chegou onde o bot conhecia
                     novas_partidas.append(partida)
 
                 novas_partidas.reverse()
