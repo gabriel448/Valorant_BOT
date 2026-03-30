@@ -314,7 +314,8 @@ async def monitoramento_continuo():
                 # Atualiza o match id e a loss streak no banco de dados
                 await atualizar_loss_streak(puuid, streak_atual)
                 print(f"Lossstreak atualizado para {nome_jogador}")
-                
+                await atualizar_match_id(puuid, novo_match_id)
+                print(f"Match id atualizado para {nome_jogador}")
                 dados_partida = await obter_detalhes_partida(novo_match_id)
                 try:
                     modo = dados_partida['data']['metadata']['mode']
@@ -323,9 +324,6 @@ async def monitoramento_continuo():
                 if modo != "Competitive":
                     print(f"Era apenas um {modo}")
                 elif dados_partida:
-                    await atualizar_match_id(puuid, novo_match_id)
-                    print(f"Match id atualizado para {nome_jogador}")
-                    
                     # Pega a duração da partida em rounds 
                     rounds_jogados = dados_partida['data']['metadata']['rounds_played']
                     
