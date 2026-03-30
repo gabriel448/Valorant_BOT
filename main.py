@@ -9,6 +9,10 @@ from discord import app_commands
 from msg import gerar_humilhacao
 from database import pegar_dono_do_alvo,configurar_modo_ia,iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
+from collections import deque
+
+# Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
+cache_partidas_vistas = deque(maxlen=500)
 
 #pega o token do bot
 load_dotenv()
@@ -28,8 +32,13 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_ready():
     #inicia o banco de dados
     await iniciar_banco()
-
     await bot.tree.sync()
+
+    # Alimenta a memória do bot com as últimas partidas do banco de dados
+    jogadores = await pegar_todos_alvos()
+    for jogador in jogadores:
+        if jogador['last_match_id']:
+            cache_partidas_vistas.append(jogador['last_match_id'])
 
     #liga o loop de verificacao
     if not monitoramento_continuo.is_running():
@@ -263,11 +272,16 @@ async def monitoramento_continuo():
             print('Nenhuma partida recente encontrada pela API, proximo ...')
             continue
 
+        metadata_recente = partidas_recentes[0].get('metadata')
+        if not metadata_recente or not metadata_recente.get('matchid'):
+            print('Metadata corrompida ou vazia, indo para proximo jogador...')
+            continue
+
         novo_match_id = partidas_recentes[0]['metadata']['matchid']
         
         if novo_match_id:
             #Compara se o ID mudou
-            if novo_match_id != ultimo_match_salvo:
+            if novo_match_id != ultimo_match_salvo and novo_match_id not in cache_partidas_vistas:
                 print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
                 print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
                 
