@@ -314,10 +314,15 @@ async def monitoramento_continuo():
                         
                         time_minusculo = time_jogador.lower()
                         if time_jogador:
+                            dados_time = partida['teams'].get(time_minusculo, {})
+                            rounds_ganhos = dados_time.get('rounds_won', 0)
+                            rounds_perdidos = dados_time.get('rounds_lost', 0)
                             if 'has_won' in partida['teams'][time_minusculo]:
                                 venceu = partida['teams'][time_minusculo]['has_won']
                                 if venceu:
                                     streak_atual = 0
+                                elif rounds_ganhos == rounds_perdidos:
+                                    print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Loss streak ignorada.")
                                 else:
                                     streak_atual += 1
                             else:
