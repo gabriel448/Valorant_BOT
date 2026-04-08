@@ -23,7 +23,8 @@ async def iniciar_banco():
         riot_tag_line VARCHAR(5) NOT NULL,
         last_match_id VARCHAR(64) NULL,
         current_tier_int INTEGER DEFAULT 0,
-        loss_streak INTEGER DEFAULT 0
+        loss_streak INTEGER DEFAULT 0,
+        pontos_explanator INTEGER DEFAULT 0
     );
     """
 
@@ -243,3 +244,31 @@ async def pegar_dono_do_alvo(nome: str, tag: str):
     await conn.close()
     
     return registro['discord_user_id'] if registro else None
+
+async def alterar_pontos_explanator(puuid: str, pontos_para_adicionar: int):
+    """Adiciona ou remove pontos do rank do Explanator e garante que não fique negativo."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = """
+        UPDATE jogadores_monitorados 
+        SET pontos_explanator = LEAST(GREATEST(pontos_explanator + $1, 0), 74) 
+        WHERE riot_puuid = $2;
+    """
+    await conn.execute(query, pontos_para_adicionar, puuid)
+    await conn.close()
+
+async def pegar_top_bagres(guild_id: int):
+    """
+    Busca os 10 jogadores com mais pontos no Explanator dentro de um servidor específico.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = """
+        SELECT j.riot_game_name, j.riot_tag_line, j.pontos_explanator, j.riot_puuid
+        FROM jogadores_monitorados j
+        INNER JOIN jogadores_servidores js ON j.discord_user_id = js.discord_user_id
+        WHERE js.guild_id = $1
+        ORDER BY j.pontos_explanator DESC
+        LIMIT 10;
+    """
+    registros = await conn.fetch(query, guild_id)
+    await conn.close()
+    return registros

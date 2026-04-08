@@ -5,11 +5,14 @@ import asyncio
 from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
+import aiohttp
 
 from msg import gerar_humilhacao, gerar_elogio
-from database import pegar_dono_do_alvo,configurar_modo_ia,iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
+from database import pegar_top_bagres,alterar_pontos_explanator,pegar_dono_do_alvo,configurar_modo_ia,iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 from collections import deque
+from imagem_builder import criar_imagem_leaderboard
+from utils import calcular_elo_explanator
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
 cache_partidas_vistas = deque(maxlen=500)
@@ -17,6 +20,7 @@ cache_partidas_vistas = deque(maxlen=500)
 #pega o token do bot
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
 
 #config das permissoes do bot
 intents = discord.Intents.default()
@@ -261,6 +265,73 @@ async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choi
     else:
         await interaction.followup.send("❌ Você precisa configurar o `/ativar-esse-canal` primeiro!")
 
+@bot.tree.command(name="top-explanados", description="Exibe o ranking dos maiores bagres deste servidor (Rank Explanator).")
+async def top_bagres(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    # 1. Busca os dados no banco
+    top_jogadores = await pegar_top_bagres(interaction.guild.id)
+    
+    if not top_jogadores:
+        await interaction.followup.send("📭 Nenhum jogador cadastrado neste servidor ainda.")
+        return
+
+    lista_para_imagem = []
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://valorant-api.com/v1/competitivetiers") as resp:
+            if resp.status == 200:
+                dados_tiers = await resp.json()
+                # O [-1] pega a temporada competitiva mais recente!
+                temporada_atual = dados_tiers['data'][-1]['tiers'] 
+            else:
+                temporada_atual = []
+    
+    # 2. Prepara os dados e busca assets (Banner e Ícone do Anti-Rank)
+    for jogador in top_jogadores:
+        puuid = jogador['riot_puuid']
+        pontos = jogador['pontos_explanator']
+        nome_completo = f"{jogador['riot_game_name']}"
+        
+        # Calcula o rank do Explanator
+        rank_nome = calcular_elo_explanator(pontos)
+        
+        # Buscamos o Banner atual do jogador na API do Henrik
+        # Usamos o endpoint de conta para pegar o banner (card)
+        url_conta = f"https://api.henrikdev.xyz/valorant/v1/by-puuid/account/{puuid}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url_conta, headers={"Authorization": HENRIK_API_KEY}) as resp:
+                banner_url = "https://media.valorant-api.com/playercards/fc209787-414b-10d0-dcac-048323c8f59b/wideart.png" # Banner padrão caso falhe
+                if resp.status == 200:
+                    dados = await resp.json()
+                    banner_url = dados['data']['card']['wide']
+
+        # Mapeamento simples de Rank para ID de ícone (valorant-api.com)
+        # O índice do rank (pontos // 3) + 3 costuma bater com os IDs da API (Ferro 1 = 3, etc)
+        indice_api = (pontos // 3) + 3 
+        if indice_api > 27: indice_api = 27 # Limite do Radiante
+        icon_url = None
+        if temporada_atual and indice_api < len(temporada_atual):
+            icon_url = temporada_atual[indice_api].get('largeIcon')
+
+        lista_para_imagem.append({
+            'nome': nome_completo,
+            'rank': rank_nome,
+            'banner_url': banner_url,
+            'icon_url': icon_url
+        })
+
+    # 3. Chama o construtor de imagem que você definiu
+    try:
+        imagem_final = await criar_imagem_leaderboard(lista_para_imagem, titulo=f"RANKING EXPLANATOR - {interaction.guild.name}")
+        
+        # 4. Envia o arquivo para o Discord
+        arquivo = discord.File(fp=imagem_final, filename="leaderboard.png")
+        await interaction.followup.send(content="🏆 **TABELA DOS BAGRES:**", file=arquivo)
+    except Exception as e:
+        print(f"Erro ao gerar imagem: {e}")
+        await interaction.followup.send("❌ Tive um problema técnico ao pintar o quadro dos bagres.")
+
 @tasks.loop(seconds=90)
 async def monitoramento_continuo():
     print("🔄 Iniciando ciclo de sondagem (Consulta Rasa)...")
@@ -469,7 +540,8 @@ async def monitoramento_continuo():
                             destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
                         # se ele deve ser punido que assim seja
                         if punitivo:
-                            
+                            await alterar_pontos_explanator(puuid, 1)
+
                             print("Gerando texto com a IA...")
                             
                             msg = StringIO()
@@ -526,7 +598,8 @@ async def monitoramento_continuo():
                                 except discord.errors.Forbidden:
                                     print(f"Erro: Sem permissão no canal {id_canal}.")
                         if merece_elogio:
-    
+                            await alterar_pontos_explanator(puuid, -1)
+
                             texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, motivos_elogio)
 
                             msg_elogio = StringIO()
@@ -535,6 +608,7 @@ async def monitoramento_continuo():
                             
                             for destino in destinos:
                                 id_canal = destino['canal']
+                                id_cargo = destino['cargo']
                                 if not id_canal: continue
                                 
                                 # Design do Embed de Elogio
