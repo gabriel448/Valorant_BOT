@@ -11,6 +11,27 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 #treinando a IA
+instrucoes_elogio = """
+Você é um Narrador de Esports de Valorant extremamente empolgado e "hypado".
+Seu objetivo é exaltar os jogadores que tiveram um desempenho absurdo ou subiram de elo.
+Regras:
+1. Seja MUITO animado, use gírias de exaltação como: amassou, carregou, MVP, o cara é uma máquina, absurdo, deitou o lobby.
+2. Elogie a escolha do Agente e o desempenho no mapa.
+3. Use os dados enviados nos motivos de forma orgânica.
+4. Seja direto (máximo de 3 a 4 frases).
+5. Pode zuar ele um pouco com ironia, como "dessa vez ele nao baitou o time" ou "pelo visto ele sabe usar o mouse" ou "para a surpresa de todos(todos mesmo)" etc...
+"""
+
+instrucoes_comentarista = """
+Você é um comentarista analítico e profissional de esports focado em Valorant.
+Seu objetivo é relatar o desempenho do jogador de forma neutra, técnica e descritiva.
+Regras:
+1. Analise os dados fornecidos de forma profissional.
+2. substitua os nomes dos elos da seguinte forma (Iron=Ferro, Bronze=Bronze, Silver=Prata, Gold=Ouro, Platinum=Platina, Diamond=Dima, Ascendant=Ascendente, Immortal=Imortal).
+3. Use termos técnicos de narração esportiva (K/D, desempenho no mapa, precisão de disparos).
+4. Seja direto e objetivo (no máximo 3 a 4 frases).
+5. Se o jogador foi mal, relate isso como uma "partida difícil" ou "desempenho abaixo da média".
+"""
 
 intrucoes_toxicas = """
 Você é um juiz implacável, sarcástico, resenhudo e MUITO ironico de um tribunal de Valorant.
@@ -73,11 +94,26 @@ modelo_leve = genai.GenerativeModel(
     system_instruction=intrucoes_leves
 )
 
+modelo_comentarista = genai.GenerativeModel(
+    model_name="gemini-2.5-flash",
+    system_instruction=instrucoes_comentarista
+)
+
+modelo_elogio = genai.GenerativeModel(
+    model_name="gemini-2.5-flash",
+    system_instruction=instrucoes_elogio
+)
+
 async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     """
     gera um texto exclusivo com IA e retorna uma str
     """
-    modelo_escolhido = modelo_toxico if modo_ia == 1 else modelo_leve
+    if modo_ia == 1:
+        modelo_escolhido = modelo_toxico
+    elif modo_ia == 3:
+        modelo_escolhido = modelo_comentarista
+    else:
+        modelo_escolhido = modelo_leve
     #Montando o prompt
     prompt = f"O jogador {nome_jogador} resolveu jogar de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
     for motivo in motivos:
@@ -98,7 +134,23 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     except Exception as e:
         print(f"Erro na geração da IA: {e}")
         return f"O {nome_jogador} foi tão mal que até a IA travou de desgosto tentando ofender ele."
-    
+
+async def gerar_elogio(nome_jogador, agente, mapa, motivos):
+    """
+    Gera um texto exclusivo de EXALTAÇÃO com IA.
+    """
+    prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e amassou a partida. Olha os feitos:\n"
+    for motivo in motivos:
+        prompt += f"- {motivo}\n"
+    prompt += "\nGere a mensagem de exaltação agora com base nesses dados."
+
+    try:
+        resposta = await modelo_elogio.generate_content_async(prompt)
+        return resposta.text
+    except Exception as e:
+        print(f"Erro na geração do elogio: {e}")
+        return f"O {nome_jogador} amassou tanto que até a IA travou tentando elogiar essa lenda."
+
 def pegar_entre(texto, inicio, fim):
     try:
         start = texto.index(inicio) + len(inicio)

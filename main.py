@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
 
-from msg import gerar_humilhacao
+from msg import gerar_humilhacao, gerar_elogio
 from database import pegar_dono_do_alvo,configurar_modo_ia,iniciar_banco,remover_alvo_bd, configurar_cargo_alerta, pegar_todos_canais_configurados, cadastrar_alvo_bd, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador,configurar_canal_alerta, atualizar_tier_jogador, atualizar_loss_streak
 from api import obter_puuid_henrik, pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 from collections import deque
@@ -17,7 +17,6 @@ cache_partidas_vistas = deque(maxlen=500)
 #pega o token do bot
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-CANAL_DE_ALERTA_ID = os.getenv('CANAL_DE_ALERTA_ID')
 
 #config das permissoes do bot
 intents = discord.Intents.default()
@@ -237,7 +236,8 @@ async def remover_alvo_error(interaction: discord.Interaction, error):
 @app_commands.describe(nivel="Escolha o nível de toxicidade")
 @app_commands.choices(nivel=[
     app_commands.Choice(name="1 - Tóxico / Pesado ", value=1),
-    app_commands.Choice(name="2 - Leve / Family Friendly", value=2)
+    app_commands.Choice(name="2 - Leve / Family Friendly", value=2),
+    app_commands.Choice(name="3 - Comentarista / Analítico", value=3)
 ])
 @app_commands.checks.has_permissions(administrator=True)
 async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choice[int]):
@@ -250,7 +250,13 @@ async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choi
     sucesso = await configurar_modo_ia(id_servidor,valor_escolhido)
 
     if sucesso:
-        tipo = "TÓXICO ☢️" if valor_escolhido == 1 else "LEVE 🕊️"
+        tipo = ''
+        if valor_escolhido == 1:
+            tipo = "TÓXICO ☢️"
+        elif valor_escolhido == 3:
+            tipo = "COMENTARISTA 🎙️"
+        else:
+            tipo = "LEVE 🕊️"
         await interaction.followup.send(f"✅ **Modo alterado!** A IA neste servidor agora operará no modo **{tipo}**.")
     else:
         await interaction.followup.send("❌ Você precisa configurar o `/ativar-esse-canal` primeiro!")
@@ -399,61 +405,77 @@ async def monitoramento_continuo():
 
                         
                         punitivo = False
-                        motivos = []
+                        motivos_punicao = []
+
+                        merece_elogio = False
+                        motivos_elogio = []
+                        rank_up = False
+                        elo_imagem = None
                         
                         if dados_mmr and 'data' in dados_mmr:
                             elo_atual_int = dados_mmr['data']['currenttier']
                             elo_atual_nome = dados_mmr['data']['currenttierpatched']
+                            elo_imagem = dados_mmr.get('data', {}).get('images', {}).get('large')
 
                         if elo_banco_int == 0:
                             #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
                             print(f"[{nome_jogador}] Elo base registrado: {elo_atual_nome} ({elo_atual_int})")
 
-                        #regra 3: cair de elo
+                        #----REGRAS DE PUNICAO----
                         elif elo_atual_int < elo_banco_int:
                             punitivo = True
-                            motivos.append(f'Caiu pro {elo_atual_nome} kkk')
+                            motivos_punicao.append(f'Caiu pro {elo_atual_nome} kkk')
                         
                         if elo_atual_int != elo_banco_int:
                             await atualizar_tier_jogador(puuid, elo_atual_int)
 
-                        # Regra 1: Gate do Zero-Kill 
                         if rounds_jogados >= 10 and kills == 0:
                             punitivo = True
-                            motivos.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
+                            motivos_punicao.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
                             
-                        # Regra 2: Desastre de K/D 
                         elif kd_ratio <= 0.5:
                             punitivo = True
-                            motivos.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
-                        
-                        #Regra 4: 
+                            motivos_punicao.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
+                         
                         if streak_atual >=4:
                             punitivo = True
-                            motivos.append(f'{streak_atual} derrotas seguidas e contando')
+                            motivos_punicao.append(f'{streak_atual} derrotas seguidas e contando')
 
-                        #regra 5:
                         if porcentagem_peito >= 84 and not e_mono_sniper:
                             punitivo = True
-                            motivos.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
+                            motivos_punicao.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
+                        
+                        #----REGRAS DE ELOGIO----
+                        if elo_atual_int > elo_banco_int:
+                            rank_up = True
+                            merece_elogio = True
+                            motivos_elogio.append(f'subiu pro {elo_atual_nome}')
 
-                        # se ele deve ser punido que assim seja
-                        if punitivo:
-                            
-                            # Pescando as URLs das imagens e dados estéticos do JSON
+                        if kd_ratio >= 2.0 and kills >= 20:
+                            merece_elogio = True
+                            motivos_elogio.append(f'K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).')
+
+                        foto_agente = None
+                        banner_jogador = None
+                        nome_agente = None
+                        mapa = None
+                        destinos = None
+                        if punitivo or merece_elogio:
                             foto_agente = estatisticas_alvo['assets']['agent']['small']
                             banner_jogador = estatisticas_alvo['assets']['card']['wide']
                             nome_agente = estatisticas_alvo['character']
                             mapa = dados_partida['data']['metadata']['map']
+
+                            destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
+                        # se ele deve ser punido que assim seja
+                        if punitivo:
                             
                             print("Gerando texto com a IA...")
                             
                             msg = StringIO()
-                            for m in motivos:
+                            for m in motivos_punicao:
                                 msg.write(f"- {m}\n")
                             
-                            destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
-
                             if not destinos:
                                 print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")
                             
@@ -472,7 +494,7 @@ async def monitoramento_continuo():
                                     print(f"Gerando IA e montando o Embed do Modo {modo_ia} para {nome_jogador}...")
                                     
                                     # 1. Gera o texto na IA
-                                    texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos, modo_ia)
+                                    texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos_punicao, modo_ia)
                                     
                                     # 2. Constrói o Embed UMA ÚNICA VEZ para este modo
                                     embed = discord.Embed(
@@ -503,6 +525,45 @@ async def monitoramento_continuo():
                                     print(f"Erro: O canal com ID {id_canal} foi deletado.")
                                 except discord.errors.Forbidden:
                                     print(f"Erro: Sem permissão no canal {id_canal}.")
+                        if merece_elogio:
+    
+                            texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, motivos_elogio)
+
+                            msg_elogio = StringIO()
+                            for m in motivos_elogio:
+                                msg_elogio.write(f"- {m}\n")
+                            
+                            for destino in destinos:
+                                id_canal = destino['canal']
+                                if not id_canal: continue
+                                
+                                # Design do Embed de Elogio
+                                embed_vitoria = discord.Embed(
+                                    description=texto_ia_elogio,
+                                    color=0xFFD700 # Cor Dourada (Gold)
+                                )
+                                embed_vitoria.add_field(name="Feitos:", value=msg_elogio.getvalue(), inline=False)
+                                
+                                # Se subiu de elo, o título é especial e a foto principal é o novo Rank
+                                if rank_up and elo_imagem:
+                                    embed_vitoria.title = "🎉 SUBIU DE ELO 🎉"
+                                    embed_vitoria.set_thumbnail(url=elo_imagem) 
+                                    embed_vitoria.set_image(url=banner_jogador)
+                                else:
+                                    # Se foi só K/D bom, foto do agente padrão
+                                    embed_vitoria.title = "🔥 ALERTA TOPII 🔥"
+                                    embed_vitoria.set_thumbnail(url=foto_agente)
+                                
+                                try:
+                                    canal = await bot.fetch_channel(int(id_canal))
+                                    # Para elogios, decidi pingar só a pessoa, e não o cargo do servidor inteiro, 
+                                    # mas você pode adicionar o <@&cargo> se quiser fazer barulho!
+                                    await canal.send(content=f"<@{discord_id}> <@&{id_cargo}>", embed=embed_vitoria)
+                                except Exception as e:
+                                    print(f"Erro ao enviar elogio: {e}")
+                            
+                            # Pequena pausa para evitar rate limit do Discord
+                            await asyncio.sleep(5)
                                     
                         else:
                             print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
