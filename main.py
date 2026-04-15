@@ -118,29 +118,27 @@ async def patch_notes(interaction: discord.Interaction):
     
     # montando o embed
     embed = discord.Embed(
-        title="📢 PATCH NOTES: O Explanator Ficou Mais Inteligente",
-        description="Atenção, bagres. O **Explanator** recebeu uma atualização de infraestrutura para julgar os seus crimes com ainda mais precisão.",
+        title="📢 PATCH NOTES!",
+        description="O explanator é justo! Chegou a hora de exaltar os heróis e expor os verdadeiros bagres do servidor com a nova atualização.",
         color=0x00BFFF # Azul claro/Cyan para notas de atualização
     )
     
-    # Campo 1: Filtro de Snipers
+    # Campo 1: Elogios e Subida de Rank
     embed.add_field(
-        name="🎯 Buff nos Snipers (Filtro de Precisão)", 
-        value="A lei mudou: tiros de **Operator, Outlaw, Marshal e a Ult do Chamber** NÃO entram mais no cálculo da punição de 84% de tiros no peito.", 
+        name="🏆 1. O Sistema de elogios", 
+        value="Se você destruir na partida, o explanator vai te reconhecer publicamente:\n"
+              "**• Subir de Elo:** O bot comemora a sua promoção no chat com a imagem oficial do seu novo elo!\n"
+              "**• Amassar o Lobby:** Fez mais de 20 abates e K/D acima de 2.0? O explanator vai te exaltar no chat.", 
         inline=False
     )
     
-    # Campo 2: Múltiplas Personalidades da IA
+    # Campo 2: Leaderboard de Bagres
     embed.add_field(
-        name="🧠 Personalidade Customizável (`/modo-ia`)", 
-        value="O administrador do servidor agora pode usar o comando `/modo-ia` para alternar entre o modo **Tóxico ☢️** (sem limites e com palavrões) ou o modo **Leve 🕊️** (humor limpo e ironia family-friendly).", 
-        inline=False
-    )
-    
-    # Campo 3: Remoção de Jogadores
-    embed.add_field(
-        name="🗑️ Novo comando Remover alvo (`/remover-alvo`)", 
-        value="Agora com o comando `/remover-alvo` (passando o Riot ID) Você pode apagar completamente a existência de um jogador do nosso banco de dados.(caso não seja ADM, você so pode remover você mesmo)", 
+        name="📉 2. O 'Anti-Rank' do Explanator (`/top-bagres`)", 
+        value="A Parede da Vergonha foi inaugurada! Transformamos a ruindade em uma tabela de liderança competitiva.\n"
+              "**• A Dinâmica:** Foi humilhado pelo bot? Ganha 1 ponto. Foi elogiado? Perde 1 ponto.\n"
+              "**• Os Elos:** A cada 3 pontos acumulados, você sobe de Elo no nosso ranking (indo do Ferro ao Radiante do explanator).\n"
+              "**• O Comando:** Use `/top-bagres` para gerar uma imagem com o Top 10 dos piores do servidor, puxando os Banners do jogo ao vivo!", 
         inline=False
     )
     
