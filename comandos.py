@@ -1,0 +1,306 @@
+import discord
+from discord import app_commands
+import aiohttp
+import os
+
+from api import obter_puuid_henrik
+from database import cadastrar_alvo_bd, configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
+from utils import calcular_elo_explanator
+from imagem_builder import criar_imagem_leaderboard
+from dotenv import load_dotenv
+
+load_dotenv()
+HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
+def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
+
+    # ----- CADASTRAR ALVO -----
+    @tree.command(name="cadastrar-alvo", description="Cadastra um amigo para o monitoramento de baitamento no Valorant.")
+    async def cadastrar_alvo(interaction: discord.Interaction, baiter: discord.Member, riot_id: str):
+    
+        await interaction.response.defer()
+        
+        try:
+            nome, tag = riot_id.split('#')
+        except ValueError:
+            await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
+            return
+
+        # Vamos buscar o tal do PUUID na API
+        puuid = await obter_puuid_henrik(nome, tag)
+        
+        if not puuid:
+            await interaction.followup.send(f"❌ Não consegui achar o jogador **{riot_id}** na API do Valorant. Tem certeza que escreveu certo?")
+            return
+            
+        # Se achou na API, salva no banco de dados
+        await cadastrar_alvo_bd(
+            discord_user_id=baiter.id, 
+            guild_id=interaction.guild.id, 
+            riot_puuid=puuid, 
+            riot_game_name=nome, 
+            riot_tag_line=tag,
+        )
+        
+        await interaction.followup.send(f"🎯 **baiter na mira** O jogador {baiter.mention} ({riot_id}) foi cadastrado com o PUUID e será monitorado neste canal.")
+
+
+    # ----- ATIVAR O CHAT DE TEXTO -----
+    @tree.command(name="ativar-esse-canal", description="[ADMIN] Define este canal como o oficial para os Alertas de Bagre.")
+    @app_commands.checks.has_permissions(administrator=True) #so adms
+    async def ativar_esse_canal(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        #pega o ID do server
+        id_servidor = interaction.guild.id
+        id_canal = interaction.channel.id
+
+        #salva no banco de dados
+        await configurar_canal_alerta(id_servidor, id_canal)
+
+        await interaction.followup.send(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
+    @ativar_esse_canal.error
+    async def ativar_esse_canal_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO: {error}")
+
+    
+    # ----- PATCH NOTES -----
+    @tree.command(name="patch-notes", description="[DEV] Dispara o anúncio de atualização para todos os servidores.")
+    async def patch_notes(interaction: discord.Interaction):
+        # Só eu posso rodar isso
+        MEU_ID_DISCORD = 473895740960407552
+        
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Apenas o desenvolvedor supremo pode usar este comando.", ephemeral=True)
+            return
+
+        # Avisa ao Discord que o bot está "pensando"
+        await interaction.response.defer(ephemeral=True)
+        
+        # montando o embed
+        embed = discord.Embed(
+            title="📢 PATCH NOTES!",
+            description="O explanator é justo! Chegou a hora de exaltar os heróis e expor os verdadeiros bagres do servidor com a nova atualização.",
+            color=0x00BFFF # Azul claro/Cyan para notas de atualização
+        )
+        
+        # Campo 1: Elogios e Subida de Rank
+        embed.add_field(
+            name="🏆 1. O Sistema de elogios", 
+            value="Se você destruir na partida, o explanator vai te reconhecer publicamente:\n"
+                "**• Subir de Elo:** O bot comemora a sua promoção no chat com a imagem oficial do seu novo elo!\n"
+                "**• Amassar o Lobby:** Fez mais de 20 abates e K/D acima de 2.0? O explanator vai te exaltar no chat.", 
+            inline=False
+        )
+        
+        # Campo 2: Leaderboard de Bagres
+        embed.add_field(
+            name="📉 2. O 'Anti-Rank' do Explanator (`/top-bagres`)", 
+            value="A Parede da Vergonha foi inaugurada! Transformamos a ruindade em uma tabela de liderança competitiva.\n"
+                "**• A Dinâmica:** Foi humilhado pelo bot? Ganha 1 ponto. Foi elogiado? Perde 1 ponto.\n"
+                "**• Os Elos:** A cada 3 pontos acumulados, você sobe de Elo no nosso ranking (indo do Ferro ao Radiante do explanator).\n"
+                "**• O Comando:** Use `/top-bagres` para gerar uma imagem com o Top 10 dos piores do servidor, puxando os Banners do jogo ao vivo!", 
+            inline=False
+        )
+        
+        embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
+
+        # dispara pra todos os servidores
+        canais = await pegar_todos_canais_configurados()
+        enviados = 0
+        
+        for id_canal in canais:
+            try:
+                canal = await client.fetch_channel(int(id_canal))
+                await canal.send(embed=embed)
+                enviados += 1
+            except discord.errors.NotFound:
+                print(f"Canal {id_canal} não encontrado.")
+            except discord.errors.Forbidden:
+                print(f"Sem permissão no canal {id_canal}.")
+                
+        # Confirmação apenas para você
+        await interaction.followup.send(f"✅ Anúncio disparado com sucesso para {enviados} servidores!")
+    
+
+    # ----- CADASTRAR CARGO -----
+    @tree.command(name="ativar-esse-cargo", description="[ADMIN] Define qual cargo será marcado nos avisos.")
+    @app_commands.describe(cargo="Selecione o cargo para ser marcado")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def ativar_esse_cargo(interaction: discord.Interaction, cargo: discord.Role):
+        await interaction.response.defer()
+
+        id_servidor = interaction.guild.id
+        id_cargo = cargo.id
+        
+        sucesso = await configurar_cargo_alerta(id_servidor, id_cargo)
+        
+        if sucesso:
+            await interaction.followup.send(f"✅ **cargo configurado** O bot agora vai marcar o cargo {cargo.mention} nos alertas de bagre deste servidor.")
+        else:
+            await interaction.followup.send("❌ **Calma lá!** Você precisa configurar o canal primeiro usando `/ativar-esse-canal` antes de tentar definir um cargo.")
+            print("Erro: Canal não estava configurado.")
+    
+    @ativar_esse_cargo.error
+    async def ativar_esse_cargo_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO: {error}")
+    
+
+    # ----- REMOVER ALVO -----
+    @tree.command(name='remover-alvo', description="Remove um jogador do monitoramento do Tribunal." )
+    @app_commands.describe(riot_id="O Riot ID do jogador (ex: Sacy#BR1)")
+    async def remover_alvo(interaction: discord.Interaction, riot_id: str):
+        #evitando timeout
+        await interaction.response.defer()
+
+        try:
+            nome, tag = riot_id.split('#')
+        except ValueError:
+            await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
+            return
+        
+        dono_id = await pegar_dono_do_alvo(nome, tag)
+
+        if not dono_id:
+            await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados.", ephemeral=True)
+            return
+        
+        # Verifica se a pessoa executando o comando é Administradora do servidor
+        eh_admin = interaction.user.guild_permissions.administrator
+
+        # Verifica se a pessoa executando o comando é a mesma que foi cadastrada no banco
+        eh_o_dono = (interaction.user.id == dono_id)
+
+        if not (eh_admin or eh_o_dono):
+            await interaction.followup.send("❌ **Acesso Negado!** Você só pode remover a SUA PRÓPRIA conta do monitoramento (ou pedir para um Administrador fazer isso).", ephemeral=True)
+            return
+        #apaga do banco
+        sucesso = await remover_alvo_bd(nome, tag)
+
+        if sucesso:
+            quem_removeu = "O administrador" if eh_admin and not eh_o_dono else "O próprio jogador"
+            await interaction.followup.send(f"✅ **Alvo Abortado!** {quem_removeu} removeu os registros de **{riot_id}**. Ele não será mais explanado.")
+            print(f"Jogador {riot_id} deletado do banco por {interaction.user.name}.")
+        else:
+            await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados. Tem certeza que o nome e a tag estão certos?", ephemeral=True)
+
+    @remover_alvo.error
+    async def remover_alvo_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO NO COMANDO DE REMOVER: {error}")
+    
+
+    # ----- MODO DA IA -----
+    @tree.command(name="modo-ia", description="[ADMIN] Define a personalidade da IA neste servidor.")
+    @app_commands.describe(nivel="Escolha o nível de toxicidade")
+    @app_commands.choices(nivel=[
+        app_commands.Choice(name="1 - Tóxico / Pesado ", value=1),
+        app_commands.Choice(name="2 - Leve / Family Friendly", value=2),
+        app_commands.Choice(name="3 - Comentarista / Analítico", value=3)
+    ])
+    @app_commands.checks.has_permissions(administrator=True)
+    async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choice[int]):
+        #evitando o timeout
+        await interaction.response.defer()
+
+        id_servidor = interaction.guild.id
+        valor_escolhido = nivel.value
+
+        sucesso = await configurar_modo_ia(id_servidor,valor_escolhido)
+
+        if sucesso:
+            tipo = ''
+            if valor_escolhido == 1:
+                tipo = "TÓXICO ☢️"
+            elif valor_escolhido == 3:
+                tipo = "COMENTARISTA 🎙️"
+            else:
+                tipo = "LEVE 🕊️"
+            await interaction.followup.send(f"✅ **Modo alterado!** A IA neste servidor agora operará no modo **{tipo}**.")
+        else:
+            await interaction.followup.send("❌ Você precisa configurar o `/ativar-esse-canal` primeiro!")
+
+    
+    # ----- TABELA DE LIDERANCA -----
+    @tree.command(name="top-explanados", description="Exibe o ranking dos maiores bagres deste servidor (Rank Explanator).")
+    async def top_bagres(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # 1. Busca os dados no banco
+        top_jogadores = await pegar_top_bagres(interaction.guild.id)
+        
+        if not top_jogadores:
+            await interaction.followup.send("📭 Nenhum jogador cadastrado neste servidor ainda.")
+            return
+
+        lista_para_imagem = []
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://valorant-api.com/v1/competitivetiers") as resp:
+                if resp.status == 200:
+                    dados_tiers = await resp.json()
+                    # O [-1] pega a temporada competitiva mais recente!
+                    temporada_atual = dados_tiers['data'][-1]['tiers'] 
+                else:
+                    temporada_atual = []
+        
+        # 2. Prepara os dados e busca assets (Banner e Ícone do Anti-Rank)
+        for jogador in top_jogadores:
+            puuid = jogador['riot_puuid']
+            pontos = jogador['pontos_explanator']
+            nome_completo = f"{jogador['riot_game_name']}"
+            
+            # Calcula o rank do Explanator
+            rank_nome = calcular_elo_explanator(pontos)
+            
+            # Buscamos o Banner atual do jogador na API do Henrik
+            # Usamos o endpoint de conta para pegar o banner (card)
+            url_conta = f"https://api.henrikdev.xyz/valorant/v1/by-puuid/account/{puuid}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url_conta, headers={"Authorization": HENRIK_API_KEY}) as resp:
+                    banner_url = "https://media.valorant-api.com/playercards/fc209787-414b-10d0-dcac-048323c8f59b/wideart.png" # Banner padrão caso falhe
+                    if resp.status == 200:
+                        dados = await resp.json()
+                        banner_url = dados['data']['card']['wide']
+
+            # Mapeamento simples de Rank para ID de ícone (valorant-api.com)
+            # O índice do rank (pontos // 3) + 3 costuma bater com os IDs da API (Ferro 1 = 3, etc)
+            indice_api = (pontos // 3) + 3 
+            if indice_api > 27: indice_api = 27 # Limite do Radiante
+            icon_url = None
+            if temporada_atual and indice_api < len(temporada_atual):
+                icon_url = temporada_atual[indice_api].get('largeIcon')
+
+            lista_para_imagem.append({
+                'nome': nome_completo,
+                'rank': rank_nome,
+                'banner_url': banner_url,
+                'icon_url': icon_url
+            })
+
+        # 3. Chama o construtor de imagem que você definiu
+        try:
+            imagem_final = await criar_imagem_leaderboard(lista_para_imagem, titulo=f"RANKING EXPLANATOR - {interaction.guild.name}")
+            
+            # 4. Envia o arquivo para o Discord
+            arquivo = discord.File(fp=imagem_final, filename="leaderboard.png")
+            await interaction.followup.send(content="🏆 **TABELA DOS BAGRES:**", file=arquivo)
+        except Exception as e:
+            print(f"Erro ao gerar imagem: {e}")
+            await interaction.followup.send("❌ Tive um problema técnico ao pintar o quadro dos bagres.")
