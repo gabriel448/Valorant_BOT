@@ -515,7 +515,7 @@ async def monitoramento_continuo():
                             motivos_punicao.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
                         
                         #----REGRAS DE ELOGIO----
-                        if elo_atual_int > elo_banco_int:
+                        if elo_atual_int > elo_banco_int and elo_banco_int != 0:
                             rank_up = True
                             merece_elogio = True
                             motivos_elogio.append(f'subiu pro {elo_atual_nome}')
