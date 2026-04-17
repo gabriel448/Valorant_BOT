@@ -109,7 +109,7 @@ modelo_elogio = genai.GenerativeModel(
 
 async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     """
-    gera um texto exclusivo com IA e retorna uma str
+    gera um texto de humilhacao exclusivo com IA e retorna uma str
     """
     if modo_ia == 1:
         modelo_escolhido = modelo_toxico
@@ -140,7 +140,7 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
 
 async def gerar_elogio(nome_jogador, agente, mapa, motivos):
     """
-    Gera um texto exclusivo de EXALTAÇÃO com IA.
+    Gera um texto exclusivo de elogio com IA.
     """
     prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e amassou a partida. Olha os feitos:\n"
     for motivo in motivos:
@@ -162,7 +162,7 @@ def pegar_entre(texto, inicio, fim):
     except ValueError:
         return None  # caso não encontre
     
-async def testar_ia():
+async def testar_ia(modo):
     print("🤖 Iniciando o teste do Tribunal da IA...\n")
     
     #dados falsos (Mock)
@@ -174,13 +174,19 @@ async def testar_ia():
         "K/D de 0.15 (2/13/4).",
         "**85%** dos acertos foi no peito"
     ]
+    elogios_teste = [
+        "subiu pro diamond 2",
+        "K/D de 2.0 (20/10/7)"
+    ]
+    if modo == 1:
+        resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_ia=2)
+    elif modo == 2:
+        resposta = await gerar_elogio(jogador_teste,agente_teste,mapa_teste,elogios_teste)
+    else:
+        print('Modo invalido, escolha 1(humilhacao) ou 2(elogio)')
     
-    resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_ia=2)
-    
-    print("=== TEXTO GERADO PELA IA ===")
-    print(resposta)
-    print("============================")
 
+    print(f"TEXTO GERADO:  '{resposta}'")
 
 async def descobrir_modelos():
     print("🔍 Consultando a API do Google para listar modelos disponíveis...\n")
@@ -192,4 +198,5 @@ async def descobrir_modelos():
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(testar_ia())
+    #1 = humilhacao ; 2 = elogio
+    asyncio.run(testar_ia(1))

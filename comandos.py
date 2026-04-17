@@ -9,6 +9,37 @@ from utils import calcular_elo_explanator
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
 
+class PaginacaoHelp(discord.ui.View):
+    def __init__(self, embed_guia, embeds_paginas):
+        super().__init__(timeout=180) # Os botões param de funcionar após 3 minutos para não pesar a memória
+        self.embed_guia = embed_guia
+        self.embeds_paginas = embeds_paginas
+        self.pagina_atual = 0
+
+    # Botão Voltar
+    @discord.ui.button(label="◀️ Anterior", style=discord.ButtonStyle.secondary, disabled=True)
+    async def botao_anterior(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.pagina_atual -= 1
+        await self.atualizar_mensagem(interaction)
+
+    # Botão Avançar
+    @discord.ui.button(label="Próximo ▶️", style=discord.ButtonStyle.primary)
+    async def botao_proximo(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.pagina_atual += 1
+        await self.atualizar_mensagem(interaction)
+
+    async def atualizar_mensagem(self, interaction: discord.Interaction):
+        # Desativa o botão "Anterior" se estiver na primeira página
+        self.children[0].disabled = (self.pagina_atual == 0)
+        # Desativa o botão "Próximo" se estiver na última página
+        self.children[1].disabled = (self.pagina_atual == len(self.embeds_paginas) - 1)
+        
+        # Edita a mensagem mantendo o Guia Fixo e trocando só a página de comandos
+        await interaction.response.edit_message(
+            embeds=[self.embed_guia, self.embeds_paginas[self.pagina_atual]], 
+            view=self
+        )
+
 load_dotenv()
 HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
 def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
@@ -304,3 +335,57 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
         except Exception as e:
             print(f"Erro ao gerar imagem: {e}")
             await interaction.followup.send("❌ Tive um problema técnico ao pintar o quadro dos bagres.")
+
+    # ----- HELP -----
+    @tree.command(name="help", description="Guia de iniciação e lista de comandos do Explanator.")
+    async def help_cmd(interaction: discord.Interaction):
+        
+        # 1. EMBED FIXO (Get Started)
+        embed_guia = discord.Embed(
+            title="🚀 PRIMEIROS PASSOS",
+            description="Acabou de convidar o Explanator? Siga a ordem abaixo para o bot começar a monitorar os jogadores do servidor:",
+            color=0xFFD700 # Dourado
+        )
+        embed_guia.add_field(name="1️⃣ Configure o Canal (Obrigatório)", value="Use `/ativar-esse-canal` no chat onde você quer que o bot envie as notificações.", inline=False)
+        embed_guia.add_field(name="2️⃣ Configure o Cargo (Opcional)", value="Quer que todo mundo seja pingado quando alguém for explanado? Use `/ativar-esse-cargo` e marque o cargo da galera do Explanator.", inline=False)
+        embed_guia.add_field(name="3️⃣ Cadastre o jogador", value="Use `/cadastrar-alvo` marcando o seu amigo e passando o Riot ID dele (ex: Sacy#BR1). A partir desse momento, ele será monitorado 24h por dia.", inline=False)
+        embed_guia.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        # 2. LISTA DE COMANDOS (Banco de dados de textos)
+        comandos_info = [
+            {"nome": "🎯 `/cadastrar-alvo [usuario] [riot_id]`", "desc": "Coloca um jogador na mira do Explanator. Toda vez que ele terminar uma partida, a IA vai julgar o desempenho dele."},
+            {"nome": "🗑️ `/remover-alvo [riot_id]`", "desc": "Deleta a existência de um jogador do banco de dados. Você só pode remover a si mesmo (Administradores podem remover qualquer um)."},
+            {"nome": "📢 `/ativar-esse-canal`", "desc": "[Admin] Trava o bot para enviar mensagens, alertas e imagens exclusivamente no canal de texto onde o comando foi digitado."},
+            {"nome": "🔔 `/ativar-esse-cargo [cargo]`", "desc": "[Admin] Escolhe qual cargo do servidor será mencionado (pingado) nos alertas do bot. Precisa configurar o canal primeiro."},
+            {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Tóxico (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
+            {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
+            {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."}
+        ]
+
+        # 3. FATIADOR DE PÁGINAS (4 comandos por página)
+        embeds_paginas = []
+        comandos_por_pagina = 4
+        
+        # Um pequeno truque de matemática para criar blocos de 4 em 4
+        for i in range(0, len(comandos_info), comandos_por_pagina):
+            pagina = comandos_info[i:i + comandos_por_pagina]
+            
+            embed_pagina = discord.Embed(
+                title=f"📚 Manual de Comandos (Página {len(embeds_paginas) + 1})",
+                color=0x00BFFF # Azul
+            )
+            
+            for cmd in pagina:
+                embed_pagina.add_field(name=cmd["nome"], value=cmd["desc"], inline=False)
+                
+            embed_pagina.set_footer(text="Use os botões abaixo para navegar.")
+            embeds_paginas.append(embed_pagina)
+
+        # 4. ENVIA A MENSAGEM COM OS BOTÕES
+        # Passamos o Guia e a lista de Páginas para a nossa classe gerenciadora
+        view_paginacao = PaginacaoHelp(embed_guia, embeds_paginas)
+        
+        await interaction.response.send_message(
+            embeds=[embed_guia, embeds_paginas[0]], 
+            view=view_paginacao
+        )
