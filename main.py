@@ -12,7 +12,7 @@ from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos
 from api import pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 from collections import deque
 from comandos import configurar_comandos
-
+from utils import ajuste_fuso_horario
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
 cache_partidas_vistas = deque(maxlen=500)
@@ -375,9 +375,11 @@ async def monitoramento_continuo():
 
         # Atualiza o status do bot no Discord para mostrar que ele está vivo
         agora = datetime.now().strftime("%H:%M")
+        hora_correta = ajuste_fuso_horario(agora, 3)
+
         atividade = discord.Activity(
             type=discord.ActivityType.watching, 
-            name=f"{len(jogadores)} alvos | Última checagem: {agora}"
+            name=f"{len(jogadores)} alvos | Última checagem: {hora_correta}"
         )
         await client.change_presence(status=discord.Status.online, activity=atividade)
 
