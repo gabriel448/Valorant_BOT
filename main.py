@@ -387,4 +387,10 @@ async def monitoramento_continuo():
 
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':
-    client.run(os.getenv('DISCORD_TOKEN'))
+    token = os.getenv('DISCORD_TOKEN')
+
+    if not token:
+        print("🚨 ERRO CRÍTICO: O Docker não conseguiu ler o DISCORD_TOKEN do arquivo .env!")
+    else:    
+        token_limpo = token.strip()
+        client.run()
