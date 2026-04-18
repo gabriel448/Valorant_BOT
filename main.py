@@ -12,7 +12,7 @@ from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos
 from api import pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
 from collections import deque
 from comandos import configurar_comandos
-from utils import ajuste_fuso_horario
+from utils import ajuste_fuso_horario, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
 cache_partidas_vistas = deque(maxlen=500)
@@ -66,7 +66,8 @@ async def monitoramento_continuo():
             ultimo_match_salvo = jogador['last_match_id']
             discord_id = jogador['discord_user_id']
             nome_jogador = jogador['riot_game_name']
-            
+            streak_atual = jogador['loss_streak']
+
             partidas_recentes = await pegar_partidas_recentes(puuid)
             if len(partidas_recentes) == 0:
                 print('Nenhuma partida recente encontrada pela API, proximo ...')
@@ -79,249 +80,93 @@ async def monitoramento_continuo():
 
             novo_match_id = partidas_recentes[0]['metadata']['matchid']
             
-            if novo_match_id:
-                #Compara se o ID mudou
-                if novo_match_id != ultimo_match_salvo and novo_match_id not in cache_partidas_vistas:
-                    print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
-                    print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
-                    
-                    novas_partidas = []
-                    for partida in partidas_recentes:
-                        # O .get() puxa o metadata. Se a chave não existir ou for nula, a variável vira None silenciosamente.
-                        metadata = partida.get('metadata')
-                        
-                        # Se não tem metadata, ou se tem metadata mas não tem o matchid dentro dele:
-                        if not metadata or not metadata.get('matchid'):
-                            print("Aviso: A API entregou uma partida corrompida/vazia. Ignorando...")
-                            continue 
+            nova_partida = await verificar_novo_match_id(novo_match_id,ultimo_match_salvo,nome_jogador,cache_partidas_vistas,puuid)
+
+            if not nova_partida:
+                pass
+            
+            await verificar_ultimas_partidas(partidas_recentes, ultimo_match_salvo, puuid, nome_jogador)
+
+            dados_partida = await obter_detalhes_partida(novo_match_id)
+
+            try:
+                modo = dados_partida['data']['metadata']['mode']
+            except:
+                modo = None
+            if modo != "Competitive":
+                print(f"Era apenas um {modo}")
+                pass
+            
+            if not dados_partida:
+                pass
+
+            dados_jogador = await pegar_dados_do_jogador(dados_partida, puuid, jogador)
+            
+            if not dados_jogador:
+                pass
+
+            dados_elo = await pegar_dados_do_elo(dados_jogador['dados_mmr'])
+            
+            if not dados_elo:
+                pass
+
+            if dados_jogador['elo_banco_int'] == 0:
+                #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
+                print(f"[{nome_jogador}] Elo base registrado: {dados_elo['elo_atual_nome']} ({dados_elo['elo_atual_int']})")
+
+
+            punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
+
+            elogio = await verificar_regras_elogio(dados_elo,dados_jogador)
+
+            if punicao['punitivo'] or elogio['merece_elogio']:
+
+                dados_embed = pegar_dados_para_o_embed(dados_jogador,dados_partida)
+                
+                destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
+
+                if punicao['punitivo']:
+                    await alterar_pontos_explanator(puuid, 1)
+                if elogio['merece_elogio']:
+                    await alterar_pontos_explanator(puuid, -1)
+                
+                if not destinos:
+                        print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  
+                
+                dados_envio = {
+                    'destinos': destinos,
+                    'discord_id': discord_id,
+                    'dados_jogador': dados_jogador,
+                    'nome_jogador': nome_jogador,
+                    'dados_embed' : dados_embed,
+                    'punicao': punicao,
+                    'elogio': elogio
+                }
+                await enviar_embeds(dados_envio)       
                             
-                        # Agora temos 100% de certeza que metadata existe e tem um matchid seguro para comparar
-                        if metadata['matchid'] == ultimo_match_salvo:
-                            break # chegou onde o bot conhecia
-                            
-                        novas_partidas.append(partida)
-
-                    novas_partidas.reverse()
-                    streak_atual = jogador['loss_streak']
-                    #Verificando as ultimas 5 partidas jogadas
-                    for partida in novas_partidas:
-                        if partida['metadata']['mode'] == 'Competitive':
-                            time_jogador = None
-                            for p in partida['players']['all_players']:
-                                if p['puuid'] == puuid:
-                                    time_jogador = p['team']
-                                    break
-                            
-                            time_minusculo = time_jogador.lower()
-                            if time_jogador:
-                                dados_time = partida['teams'].get(time_minusculo, {})
-                                rounds_ganhos = dados_time.get('rounds_won', 0)
-                                rounds_perdidos = dados_time.get('rounds_lost', 0)
-                                if 'has_won' in partida['teams'][time_minusculo]:
-                                    venceu = partida['teams'][time_minusculo]['has_won']
-                                    if venceu:
-                                        streak_atual = 0
-                                    elif rounds_ganhos == rounds_perdidos:
-                                        print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Loss streak ignorada.")
-                                    else:
-                                        streak_atual += 1
-                                else:
-                                    print("Erro: 'has_won' nao eh um item de partida")
-                    
-
-
-                    # Atualiza o match id e a loss streak no banco de dados
-                    await atualizar_loss_streak(puuid, streak_atual)
-                    print(f"Lossstreak atualizado para {nome_jogador}")
-                    await atualizar_match_id(puuid, novo_match_id)
-                    print(f"Match id atualizado para {nome_jogador}")
-                    dados_partida = await obter_detalhes_partida(novo_match_id)
-                    try:
-                        modo = dados_partida['data']['metadata']['mode']
-                    except:
-                        modo = None
-                    if modo != "Competitive":
-                        print(f"Era apenas um {modo}")
-                    elif dados_partida:
-                        # Pega a duração da partida em rounds 
-                        rounds_jogados = dados_partida['data']['metadata']['rounds_played']
-                        
-                        # Procura o jogador dentro da lista de jogadores da partida 
-                        estatisticas_alvo = None
-                        for player in dados_partida['data']['players']['all_players']:
-                            if player['puuid'] == puuid:
-                                estatisticas_alvo = player
-                                break
-                        
-                        # Se achou o jogador na partida, vamos julgar os dados 
-                        if estatisticas_alvo:
-                            kills = estatisticas_alvo['stats']['kills']
-                            deaths = estatisticas_alvo['stats']['deaths']
-                            assists = estatisticas_alvo['stats']['assists']
-
-                            #Precisao de tiro
-                            
-                            headshots = estatisticas_alvo['stats']['headshots']
-                            bodyshots = estatisticas_alvo['stats']['bodyshots']
-                            legshots = estatisticas_alvo['stats']['legshots']
-
-                            #Prevencao de divisao por zero 
-                            total_tiros = headshots + bodyshots + legshots
-                            porcentagem_peito = (bodyshots / total_tiros * 100) if total_tiros > 0 else 0
-                            
-                            # Proteção estrutural: Evita erro de divisão por zero se ele não morreu nenhuma vez [cite: 103]
-                            kd_ratio = kills / deaths if deaths > 0 else kills
-                            
-                            #logica de perdoar os snipers
-                            armas_perdoadas = ["Operator", "Outlaw", "Marshal", "Tour De Force"]
-                            kills_com_armas_perdoadas = 0
-                            kill_events = dados_partida.get('data', {}).get('kills', [])
-                            
-                            for kill in kill_events:
-                                if kill.get('killer_puuid') == puuid:
-                                    arma_usada = kill.get('weapon_name')
-                                    if arma_usada in armas_perdoadas:
-                                        kills_com_armas_perdoadas += 1
-
-                            e_mono_sniper = False
-                            if kills > 0:
-                                porcentagem_kills_sniper = (kills_com_armas_perdoadas/kills) * 100
-                                if porcentagem_kills_sniper >= 50:
-                                    e_mono_sniper = True
-                                    print(f"[{nome_jogador}] Ganhou perdao de Sniper: {porcentagem_kills_sniper:.1f}% das kills.")
-
-
-                            #elo apos o jogo
-                            dados_mmr = await obter_mmr_jogador(puuid)
-
-                            #elo no banco de dados
-                            elo_banco_int = jogador['current_tier_int']
 
                             
-                            punitivo = False
-                            motivos_punicao = []
-
-                            merece_elogio = False
-                            motivos_elogio = []
-                            rank_up = False
-                            elo_imagem = None
+            
                             
-                            if dados_mmr and 'data' in dados_mmr:
-                                elo_atual_int = dados_mmr['data']['currenttier']
-                                elo_atual_nome = dados_mmr['data']['currenttierpatched']
-                                elo_imagem = dados_mmr.get('data', {}).get('images', {}).get('large')
-
-                            if elo_banco_int == 0:
-                                #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
-                                print(f"[{nome_jogador}] Elo base registrado: {elo_atual_nome} ({elo_atual_int})")
-
-                            #----REGRAS DE PUNICAO----
-                            elif elo_atual_int < elo_banco_int:
-                                punitivo = True
-                                motivos_punicao.append(f'Caiu pro {elo_atual_nome} kkk')
                             
-                            if elo_atual_int != elo_banco_int:
-                                await atualizar_tier_jogador(puuid, elo_atual_int)
+                            
 
-                            if rounds_jogados >= 10 and kills == 0:
-                                punitivo = True
-                                motivos_punicao.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
+                            
+
+                            
+                            
+                            
+
+                            
+                            
+                            
+
                                 
-                            elif kd_ratio <= 0.5:
-                                punitivo = True
-                                motivos_punicao.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
                             
-                            if streak_atual >=4:
-                                punitivo = True
-                                motivos_punicao.append(f'{streak_atual} derrotas seguidas e contando')
-
-                            if porcentagem_peito >= 84 and not e_mono_sniper:
-                                punitivo = True
-                                motivos_punicao.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
-                            
-                            #----REGRAS DE ELOGIO----
-                            if elo_atual_int > elo_banco_int and elo_banco_int != 0:
-                                rank_up = True
-                                merece_elogio = True
-                                motivos_elogio.append(f'subiu pro {elo_atual_nome}')
-
-                            if kd_ratio >= 2.0 and kills >= 20:
-                                merece_elogio = True
-                                motivos_elogio.append(f'K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).')
-
-                            foto_agente = None
-                            banner_jogador = None
-                            nome_agente = None
-                            mapa = None
-                            destinos = None
-                            if punitivo or merece_elogio:
-                                foto_agente = estatisticas_alvo['assets']['agent']['small']
-                                banner_jogador = estatisticas_alvo['assets']['card']['wide']
-                                nome_agente = estatisticas_alvo['character']
-                                mapa = dados_partida['data']['metadata']['map']
-
-                                destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
-                            # se ele deve ser punido que assim seja
-                            if punitivo:
-                                await alterar_pontos_explanator(puuid, 1)
-
-                                print("Gerando texto com a IA...")
                                 
-                                msg = StringIO()
-                                for m in motivos_punicao:
-                                    msg.write(f"- {m}\n")
                                 
-                                if not destinos:
-                                    print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")
-                                
-                                embeds_gerados = {}
-
-                                for destino in destinos:
-                                    id_canal = destino['canal']
-                                    id_cargo = destino['cargo']
-                                    modo_ia = destino['modo_ia']
-
-                                    if not id_canal:
-                                        print(f'Cargo configurado mas canal nao configurado')
-                                        continue
-                                    
-                                    if modo_ia not in embeds_gerados:
-                                        print(f"Gerando IA e montando o Embed do Modo {modo_ia} para {nome_jogador}...")
-                                        
-                                        # 1. Gera o texto na IA
-                                        texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, motivos_punicao, modo_ia)
-                                        
-                                        # 2. Constrói o Embed UMA ÚNICA VEZ para este modo
-                                        embed = discord.Embed(
-                                            title="🚨 ALERTA DE BAGRE 🚨",
-                                            description=texto_ia,
-                                            color=0xFF0000 
-                                        )
-                                            
-                                        embed.add_field(name="Ficha Criminal:", value=msg.getvalue(), inline=False)
-                                        embed.add_field(name="K / D / A", value=f"{kills} / {deaths} / {assists}", inline=True)
-                                        embed.set_thumbnail(url=foto_agente)
-                                        embed.set_image(url=banner_jogador)  
-                                        
-                                        # 3. Salva o Embed prontinho no Cache!
-                                        embeds_gerados[modo_ia] = embed
-
-                                    try:
-                                        canal = await client.fetch_channel(int(id_canal))
-
-                                        #monta o texto de mecao de forma inteligente
-                                        texto_ping = f"<@{discord_id}>"
-                                        if id_cargo:
-                                            texto_ping += f"<@&{id_cargo}>"
-                                        
-                                        await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
-                                        print(f"Notificação de punição enviada para {nome_jogador} (Modo {modo_ia}) no canal {id_canal}!!")   
-                                    except discord.errors.NotFound:
-                                        print(f"Erro: O canal com ID {id_canal} foi deletado.")
-                                    except discord.errors.Forbidden:
-                                        print(f"Erro: Sem permissão no canal {id_canal}.")
                             if merece_elogio:
-                                await alterar_pontos_explanator(puuid, -1)
+                                
 
                                 texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, motivos_elogio)
 
@@ -353,8 +198,6 @@ async def monitoramento_continuo():
                                     
                                     try:
                                         canal = await client.fetch_channel(int(id_canal))
-                                        # Para elogios, decidi pingar só a pessoa, e não o cargo do servidor inteiro, 
-                                        # mas você pode adicionar o <@&cargo> se quiser fazer barulho!
                                         await canal.send(content=f"<@{discord_id}> <@&{id_cargo}>", embed=embed_vitoria)
                                     except Exception as e:
                                         print(f"Erro ao enviar elogio: {e}")
@@ -365,11 +208,6 @@ async def monitoramento_continuo():
                             else:
                                 print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
                             await asyncio.sleep(5)
-                        
-                else:
-                    # Nenhuma partida nova ocorreu
-                    print(f"Nenhuma nova partida para {nome_jogador}")
-                    pass 
                 
             await asyncio.sleep(1.5)
 
