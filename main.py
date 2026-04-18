@@ -1,18 +1,15 @@
 import discord
-from discord.ext import commands, tasks
+
 import os
 import asyncio
 from dotenv import load_dotenv
-from io import StringIO
 from discord import app_commands
-from datetime import datetime
 
-from msg import gerar_humilhacao, gerar_elogio
-from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador, atualizar_tier_jogador, atualizar_loss_streak
-from api import pegar_partidas_recentes, obter_detalhes_partida, obter_mmr_jogador
+from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador
+from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
-from utils import ajuste_fuso_horario, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds
+from utils import atualizar_status_discord, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
 cache_partidas_vistas = deque(maxlen=500)
@@ -50,7 +47,6 @@ async def on_ready():
     print(f'Sucesso - Bot {client.user.name} acordou e esta online no Discord')
     print('Aguardando informacaoes')
 
-
     client.loop.create_task(monitoramento_continuo())#COMENTE ESSA LINHA CASO ESTEJA FAZENDO APENAS TESTES
 
 
@@ -72,7 +68,7 @@ async def monitoramento_continuo():
             if len(partidas_recentes) == 0:
                 print('Nenhuma partida recente encontrada pela API, proximo ...')
                 continue
-
+            
             metadata_recente = partidas_recentes[0].get('metadata')
             if not metadata_recente or not metadata_recente.get('matchid'):
                 print('Metadata corrompida ou vazia, indo para proximo jogador...')
@@ -80,12 +76,31 @@ async def monitoramento_continuo():
 
             novo_match_id = partidas_recentes[0]['metadata']['matchid']
             
-            nova_partida = await verificar_novo_match_id(novo_match_id,ultimo_match_salvo,nome_jogador,cache_partidas_vistas,puuid)
+            dados_de_envio_match_id = {
+                'novo_match_id': novo_match_id,
+                'ultimo_match_salvo': ultimo_match_salvo,
+                'nome_jogador': nome_jogador,
+                'cache_partidas_vistas': cache_partidas_vistas,
+                'puuid': puuid
+            } 
+
+            #verifica se eh realmente uma partida nova           
+            nova_partida = await verificar_novo_match_id(dados_de_envio_match_id)
 
             if not nova_partida:
-                pass
+                print(f"Nenhuma nova partida para {nome_jogador}")
+                await asyncio.sleep(1.5)
+                continue
             
-            await verificar_ultimas_partidas(partidas_recentes, ultimo_match_salvo, puuid, nome_jogador)
+            #olha as ultimas 5 partidas pra atualizar o losstreak
+            dados_ultimas_partidas = {
+                'partidas_recentes': partidas_recentes,
+                'ultimo_match_salvo': ultimo_match_salvo,
+                'puuid': puuid,
+                'nome_jogador': nome_jogador,
+                'streak_atual': streak_atual
+            }
+            await verificar_ultimas_partidas(dados_ultimas_partidas)
 
             dados_partida = await obter_detalhes_partida(novo_match_id)
 
@@ -93,38 +108,46 @@ async def monitoramento_continuo():
                 modo = dados_partida['data']['metadata']['mode']
             except:
                 modo = None
+
             if modo != "Competitive":
                 print(f"Era apenas um {modo}")
-                pass
+                continue
             
             if not dados_partida:
-                pass
-
+                print(f'Erro: dados da partida do jogador {nome_jogador} Nulos')
+                continue
+            
+            #pega informacoes do desempenho do jogador na partida para serem julgadas
             dados_jogador = await pegar_dados_do_jogador(dados_partida, puuid, jogador)
             
             if not dados_jogador:
-                pass
-
+                print(f'Erro: dados do jogador {nome_jogador} Nulos')
+                continue
+            
+            #pega informacoes do elo do jogador, como imagem, nome etc...
             dados_elo = await pegar_dados_do_elo(dados_jogador['dados_mmr'])
             
             if not dados_elo:
-                pass
+                print(f'Erro: nao foi possivel pegar os dados do elo do jogador {nome_jogador}')
+                continue
 
             if dados_jogador['elo_banco_int'] == 0:
                 #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
                 print(f"[{nome_jogador}] Elo base registrado: {dados_elo['elo_atual_nome']} ({dados_elo['elo_atual_int']})")
-
-
+            
+            #verifica se ele cometeu algum crime, e devolve um dicionario com o relatorio pra gerar a humilhacao
             punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
 
+            #verifica se ele jogou bem e devolve um dicionario ralatorio pra gerar o elogio
             elogio = await verificar_regras_elogio(dados_elo,dados_jogador)
 
             if punicao['punitivo'] or elogio['merece_elogio']:
-
+                #pega alguns elementos visuais e escritos pra montar o embed pro discord
                 dados_embed = pegar_dados_para_o_embed(dados_jogador,dados_partida)
                 
                 destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
+                #ajusta a pontuacao do rank do explanator no banco de dados
                 if punicao['punitivo']:
                     await alterar_pontos_explanator(puuid, 1)
                 if elogio['merece_elogio']:
@@ -132,7 +155,7 @@ async def monitoramento_continuo():
                 
                 if not destinos:
                         print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  
-                
+
                 dados_envio = {
                     'destinos': destinos,
                     'discord_id': discord_id,
@@ -140,86 +163,22 @@ async def monitoramento_continuo():
                     'nome_jogador': nome_jogador,
                     'dados_embed' : dados_embed,
                     'punicao': punicao,
-                    'elogio': elogio
+                    'elogio': elogio,
+                    'client': client
                 }
+
+                #aqui faz bastante coisa, pega todos os canais que eh pra mandar o aviso, gera os tipos de embeds necessarios
+                #depois envie pra todos os canais
                 await enviar_embeds(dados_envio)       
-                            
-
-                            
-            
-                            
-                            
-                            
-
-                            
-
-                            
-                            
-                            
-
-                            
-                            
-                            
-
-                                
-                            
-                                
-                                
-                            if merece_elogio:
-                                
-
-                                texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, motivos_elogio)
-
-                                msg_elogio = StringIO()
-                                for m in motivos_elogio:
-                                    msg_elogio.write(f"- {m}\n")
-                                
-                                for destino in destinos:
-                                    id_canal = destino['canal']
-                                    id_cargo = destino['cargo']
-                                    if not id_canal: continue
-                                    
-                                    # Design do Embed de Elogio
-                                    embed_vitoria = discord.Embed(
-                                        description=texto_ia_elogio,
-                                        color=0xFFD700 # Cor Dourada (Gold)
-                                    )
-                                    embed_vitoria.add_field(name="Feitos:", value=msg_elogio.getvalue(), inline=False)
-                                    
-                                    # Se subiu de elo, o título é especial e a foto principal é o novo Rank
-                                    if rank_up and elo_imagem:
-                                        embed_vitoria.title = "🎉 SUBIU DE ELO 🎉"
-                                        embed_vitoria.set_thumbnail(url=elo_imagem) 
-                                        embed_vitoria.set_image(url=banner_jogador)
-                                    else:
-                                        # Se foi só K/D bom, foto do agente padrão
-                                        embed_vitoria.title = "🔥 ALERTA TOPII 🔥"
-                                        embed_vitoria.set_thumbnail(url=foto_agente)
-                                    
-                                    try:
-                                        canal = await client.fetch_channel(int(id_canal))
-                                        await canal.send(content=f"<@{discord_id}> <@&{id_cargo}>", embed=embed_vitoria)
-                                    except Exception as e:
-                                        print(f"Erro ao enviar elogio: {e}")
-                                
-                                # Pequena pausa para evitar rate limit do Discord
-                                await asyncio.sleep(5)
-                                        
-                            else:
-                                print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
-                            await asyncio.sleep(5)
+                   
+            else:
+                print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
+            await asyncio.sleep(5)
                 
-            await asyncio.sleep(1.5)
 
         # Atualiza o status do bot no Discord para mostrar que ele está vivo
-        agora = datetime.now().strftime("%H:%M")
-        hora_correta = ajuste_fuso_horario(agora, 3)
-
-        atividade = discord.Activity(
-            type=discord.ActivityType.watching, 
-            name=f"{len(jogadores)} alvos | Última checagem: {hora_correta}"
-        )
-        await client.change_presence(status=discord.Status.online, activity=atividade)
+        await atualizar_status_discord(client, jogadores)
+        
 
         segundos = 15
         print(f'Ciclo de sondagem terminado esperando {segundos}')

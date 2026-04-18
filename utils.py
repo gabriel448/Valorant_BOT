@@ -4,6 +4,7 @@ import asyncio
 import discord
 from msg import gerar_humilhacao, gerar_elogio
 from io import StringIO
+from datetime import datetime
 
 def calcular_elo_explanator(pontos):
     """Converte os pontos do Explanator em um nome de Elo do Valorant."""
@@ -51,12 +52,18 @@ def ajuste_fuso_horario(hora:str, diferenca:int):
     return None
     
 
-async def verificar_novo_match_id(novo_matchID,ultimo_match_salvo,nome_jogador,cache_partidas_vistas,puuid):
+async def verificar_novo_match_id(dados):
     """
     verifica se o matchID retornado pela API eh novo e se ja nao esta no cache de partidas vistas, se for realmente uma nova partida
     ele atualiza no banco de dados
     RETORNA True se for uma partida nova e False se for uma ja conhecida ou nula
     """
+    novo_matchID = dados['novo_match_id']
+    ultimo_match_salvo = dados['ultimo_match_salvo']
+    nome_jogador = dados['nome_jogador']
+    cache_partidas_vistas = dados['cache_partidas_vistas']
+    puuid = dados['puuid']
+
     if novo_matchID:
         #Compara se o ID mudou
         if novo_matchID != ultimo_match_salvo and novo_matchID not in cache_partidas_vistas:
@@ -69,17 +76,23 @@ async def verificar_novo_match_id(novo_matchID,ultimo_match_salvo,nome_jogador,c
             return True
         else:
             # Nenhuma partida nova ocorreu
-            print(f"Nenhuma nova partida para {nome_jogador}")
             return False
     else:
         print('Erro, novo MatchID Nulo')
         return False
 
 
-async def verificar_ultimas_partidas(partidas_recentes, ultimo_match_salvo,puuid, nome_jogador):
+async def verificar_ultimas_partidas(dados):
     """
     Verifica as ultimas 5 partidas do jogador pra verificar e atualizar seu losstreak
     """
+
+    partidas_recentes = dados['partidas_recentes']
+    ultimo_match_salvo = dados['ultimo_match_salvo']
+    puuid = dados['puuid']
+    nome_jogador = dados['nome_jogador']
+    streak_atual = dados['streak_atual']
+
     novas_partidas = []
     for partida in partidas_recentes:
         # O .get() puxa o metadata. Se a chave não existir ou for nula, a variável vira None silenciosamente.
@@ -238,12 +251,12 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
     motivos_punicao = []
     motivos_punicao_IA = []
 
-    if dados_elo['elo_atual_int'] < dados_elo['elo_banco_int']:
+    if dados_elo['elo_atual_int'] < dados_jogador['elo_banco_int']:
         punitivo = True
         motivos_punicao.append(f'Caiu pro {dados_elo['elo_atual_nome']} kkk')
         motivos_punicao.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo['elo_atual_nome']}')
     
-    if dados_elo['elo_atual_int'] != dados_elo['elo_banco_int']:
+    if dados_elo['elo_atual_int'] != dados_jogador['elo_banco_int']:
         await atualizar_tier_jogador(dados_jogador['puuid'], dados_elo['elo_atual_int'])
 
     if dados_jogador['rounds_jogados'] >= 10 and dados_jogador['kills'] == 0:
@@ -284,7 +297,7 @@ async def verificar_regras_elogio(dados_elo, dados_jogador):
     motivos_elogio_IA = []
     rank_up = False
 
-    if dados_elo['elo_atual_int'] > dados_elo['elo_banco_int'] and dados_elo['elo_banco_int'] != 0:
+    if dados_elo['elo_atual_int'] > dados_jogador['elo_banco_int'] and dados_jogador['elo_banco_int'] != 0:
         rank_up = True
         merece_elogio = True
         motivos_elogio.append(f'subiu pro {dados_elo['elo_atual_nome']}')
@@ -318,24 +331,28 @@ def pegar_dados_para_o_embed(dados_jogador,dados_partida):
     banner_jogador = dados_jogador['estatisticas_alvo']['assets']['card']['wide']
     nome_agente = dados_jogador['estatisticas_alvo']['character']
     mapa = dados_partida['data']['metadata']['map']
-
+    elo_imagem = dados_jogador.get('data', {}).get('images', {}).get('large')
     dados_embed = {
         'foto_agente': foto_agente,
         'banner_jogador': banner_jogador,
         'nome_agente': nome_agente,
-        'mapa': mapa
+        'mapa': mapa,
+        'elo_imagem': elo_imagem
     }
 
     return dados_embed
 
 async def enviar_embeds(dados_envio):
-    
+    """
+    pega todos os destinos da notificacao, manda fazer os embeds e depois envia
+    """
     embeds_gerados = {}
     destinos = dados_envio['destinos']
     punicao = dados_envio['punicao']
     elogio = dados_envio['elogio']
     nome_jogador = dados_envio['nome_jogador']
     discord_id = dados_envio['discord_id']
+    client = dados_envio['client']
 
     for destino in destinos:
         id_canal = destino['canal']
@@ -355,7 +372,7 @@ async def enviar_embeds(dados_envio):
 
             if modo_ia not in embeds_gerados:
 
-                embeds_gerados[modo_ia] = await gerar_embed(dados_envio, modo_ia)
+                embeds_gerados[modo_ia] = await gerar_embed(dados_envio, modo_ia, msg)
             modo = 'Punicao ' + str(modo_ia)
 
         if elogio['merece_elogio']:
@@ -364,7 +381,7 @@ async def enviar_embeds(dados_envio):
                 msg.write(f"- {m}\n")
 
             if 'elogio' not in embeds_gerados:
-                embeds_gerados['elogio'] = await gerar_embed(dados_envio, 'elogio')
+                embeds_gerados['elogio'] = await gerar_embed(dados_envio, 'elogio', msg)
             modo = 'Elogio'
 
         try:
@@ -379,6 +396,7 @@ async def enviar_embeds(dados_envio):
                 await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
             if elogio['merece_elogio']:
                 await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
+            await asyncio.sleep(2.5)
 
             print(f"Notificação de punição enviada para {nome_jogador} (Modo {modo}) no canal {id_canal}!!")   
         except discord.errors.NotFound:
@@ -386,14 +404,17 @@ async def enviar_embeds(dados_envio):
         except discord.errors.Forbidden:
             print(f"Erro: Sem permissão no canal {id_canal}.")
 
-async def gerar_embed(dados_envio, modo):
+async def gerar_embed(dados_envio, modo, msg):
+    """
+    recebe os dados e constroi o embed do tipo pedido (punicao ou elogio)
+    """
     embed = None
+
     punicao = dados_envio['punicao']
     elogio = dados_envio['elogio']
     dados_embed = dados_envio['dados_embed']
     dados_jogador = dados_envio['dados_jogador']
     nome_jogador = dados_envio['nome_jogador']
-    discord_id = dados_envio['discord_id']
 
     kills = dados_jogador['kills']
     deaths = dados_jogador['deaths']
@@ -402,6 +423,8 @@ async def gerar_embed(dados_envio, modo):
     mapa = dados_embed['mapa']
     foto_agente = dados_embed['foto_agente']
     banner_jogador = dados_embed['banner_jogador']
+    elo_imagem = dados_embed['elo_imagem']
+    rank_up = elogio['rank_up']
 
     if modo == 'elogio':
         print(f"Gerando IA e montando o Embed do Modo Elogio para {nome_jogador}...")
@@ -411,7 +434,7 @@ async def gerar_embed(dados_envio, modo):
             description=texto_ia_elogio,
             color=0xFFD700 # Cor Dourada (Gold)
         )
-        embed_vitoria.add_field(name="Feitos:", value=msg_elogio.getvalue(), inline=False)
+        embed_vitoria.add_field(name="Feitos:", value=msg.getvalue(), inline=False)
         
         # Se subiu de elo, o título é especial e a foto principal é o novo Rank
         if rank_up and elo_imagem:
@@ -442,3 +465,13 @@ async def gerar_embed(dados_envio, modo):
         embed.set_image(url=banner_jogador)  
     
     return embed
+
+async def atualizar_status_discord(client, jogadores):
+    agora = datetime.now().strftime("%H:%M")
+    hora_correta = ajuste_fuso_horario(agora, 3)
+
+    atividade = discord.Activity(
+        type=discord.ActivityType.watching, 
+        name=f"{len(jogadores)} alvos | Última checagem: {hora_correta}"
+    )
+    await client.change_presence(status=discord.Status.online, activity=atividade)
