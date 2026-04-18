@@ -359,7 +359,8 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
             {"nome": "🔔 `/ativar-esse-cargo [cargo]`", "desc": "[Admin] Escolhe qual cargo do servidor será mencionado (pingado) nos alertas do bot. Precisa configurar o canal primeiro."},
             {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Tóxico (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
             {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
-            {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."}
+            {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
+            {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor"}
         ]
 
         # 3. FATIADOR DE PÁGINAS (4 comandos por página)
@@ -389,3 +390,29 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
             embeds=[embed_guia, embeds_paginas[0]], 
             view=view_paginacao
         )
+    
+    # ----- COMANDO CONVITE (PROVISÓRIO) -----
+    @tree.command(name="convite", description="Receba o link para adicionar o Explanator no seu servidor.")
+    async def convite_cmd(interaction: discord.Interaction):
+        
+        link_convite = "https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands"
+        
+        embed = discord.Embed(
+            title="⚖️ Leve o Explanator para o seu Servidor",
+            description="Nosso site oficial está em construção! Enquanto isso, use o botão abaixo para convidar o bot e começar a julgar os bagres dos seus amigos.",
+            color=0x5865F2 # Azul padrão do Discord
+        )
+        
+        embed.set_thumbnail(url=client.user.avatar.url)
+
+        # Cria um botão de link nativo
+        view = discord.ui.View()
+        botao = discord.ui.Button(
+            label="Adicionar ao Servidor", 
+            url=link_convite, 
+            style=discord.ButtonStyle.link
+        )
+        view.add_item(botao)
+        
+        # Envia a mensagem (ephemeral=True para não poluir o chat do servidor)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
