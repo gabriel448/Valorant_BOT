@@ -33,7 +33,8 @@ async def iniciar_banco():
     CREATE TABLE IF NOT EXISTS configuracoes_servidor (
         guild_id BIGINT PRIMARY KEY,
         alert_channel_id BIGINT NOT NULL,
-        alert_role_id BIGINT NULL
+        alert_role_id BIGINT NULL,
+        modo_ia INTEGER DEFAULT 2
     );
     """
 
