@@ -30,7 +30,7 @@ class MeuBot(discord.Client):
         configurar_comandos(self.tree, self)
         
         # 3. Sincroniza os comandos com o Discord
-        await self.tree.sync()
+        #await self.tree.sync()
         print("✅ Comandos carregados e sincronizados com sucesso!")
 
 client = MeuBot()
