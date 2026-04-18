@@ -393,4 +393,4 @@ if __name__ == '__main__':
         print("🚨 ERRO CRÍTICO: O Docker não conseguiu ler o DISCORD_TOKEN do arquivo .env!")
     else:    
         token_limpo = token.strip()
-        client.run()
+        client.run(token_limpo)
