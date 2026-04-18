@@ -49,7 +49,8 @@ async def on_ready():
     print(f'Sucesso - Bot {client.user.name} acordou e esta online no Discord')
     print('Aguardando informacaoes')
 
-    client.loop.create_task(monitoramento_continuo())
+
+    client.loop.create_task(monitoramento_continuo())#COMENTE ESSA LINHA CASO ESTEJA FAZENDO APENAS TESTES
 
 
 async def monitoramento_continuo():
