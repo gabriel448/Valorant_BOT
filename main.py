@@ -5,6 +5,7 @@ import asyncio
 from dotenv import load_dotenv
 from io import StringIO
 from discord import app_commands
+from datetime import datetime
 
 from msg import gerar_humilhacao, gerar_elogio
 from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, atualizar_match_id,pegar_canais_e_cargos_do_jogador, atualizar_tier_jogador, atualizar_loss_streak
@@ -371,6 +372,15 @@ async def monitoramento_continuo():
                     pass 
                 
             await asyncio.sleep(1.5)
+
+        # Atualiza o status do bot no Discord para mostrar que ele está vivo
+        agora = datetime.now().strftime("%H:%M")
+        atividade = discord.Activity(
+            type=discord.ActivityType.watching, 
+            name=f"{len(jogadores)} alvos | Última checagem: {agora}"
+        )
+        await client.change_presence(status=discord.Status.online, activity=atividade)
+
         segundos = 15
         print(f'Ciclo de sondagem terminado esperando {segundos}')
         await asyncio.sleep(segundos)
