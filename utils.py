@@ -422,7 +422,7 @@ async def gerar_embed(dados_envio, modo, msg):
 
     if modo == 'elogio':
         print(f"Gerando IA e montando o Embed do Modo Elogio para {nome_jogador}...")
-        texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, elogio['motivos_elogio'])
+        texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, elogio['motivos_elogio_IA'])
         
         embed_vitoria = discord.Embed(
             description=texto_ia_elogio,
@@ -439,6 +439,8 @@ async def gerar_embed(dados_envio, modo, msg):
             # Se foi só K/D bom, foto do agente padrão
             embed_vitoria.title = "🔥 ALERTA TOPII 🔥"
             embed_vitoria.set_thumbnail(url=foto_agente)
+
+        embed = embed_vitoria
     else:
 
         print(f"Gerando IA e montando o Embed do Modo {modo} para {nome_jogador}...")
