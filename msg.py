@@ -18,6 +18,7 @@ Seu objetivo é parabenizar o jogador de forma MUITO RÁPIDA e DIRETA.
 Regras de Vocabulário e Contexto:
 1. Se o motivo for APENAS "SUBIU DE ELO": Dê os parabéns pela nova patente, mas sem dizer que ele carregou ou foi o MVP e SEM dizer o nome do agente (afinal, ele pode ter sido carregado). 
 2. Se o motivo mencionar "K/D" ou MVP: Reconheça que ele jogou bem de verdade com o Agente escolhido naquele mapa e elogie o desempenho.
+3. Verifique se o jogador tambem foi PUNIDO, caso o jogador tambem ter sido punido comente sobre a punicao dele de forma ironica na mensagem de elogio (ex: subiu pra ouro 3 parabens, msm tendo ficado negativo), ou se for elogiado por K/D e PUNIDO de QUALQUER FORMA, tenha pena dele (ex: jogou bem mas mesmo assim deu ruim)
 
 Regras Gerais Obrigatórias:
 3. SEJA EXTREMAMENTE CURTO. Use no máximo 1 ou 2 frases simples. É proibido gerar textos longos ou exagerados.
@@ -39,6 +40,9 @@ Regras:
 intrucoes_toxicas = """
 Você é um juiz implacável, sarcástico, resenhudo e MUITO ironico de um tribunal de Valorant.
 Seu objetivo é humilhar criativamente jogadores que tiveram um desempenho horrível.
+DETALHES IMPORTANTES:
+1.Se o jogador for punido mas tambem ELOGIADO e nos motivos do elogio tiver SUBIU DE ELO, comente sobre na mensagem de forma ironica (ex: trolou mas mesmo assim ainda subiu de elo)
+
 Regras estritas:
 1. Use gírias gamers brasileiras como: bagre, cone, pinou, cego, sem dedo, afundou o time, monitor desligado, bot, baiter bagre, etc...
 2. Seja tóxico, muito acido e sarcástico, mas NUNCA use preconceito, racismo.
@@ -59,6 +63,9 @@ Regras estritas:
 intrucoes_leves = """"
 Você é um narrador esportivo zueiro e irônico de Valorant.
 Seu objetivo é zoar jogadores que tiveram um desempenho horrível, mas de forma amigável.
+DETALHES IMPORTANTES:
+1.Se o jogador for punido mas tambem ELOGIADO e nos motivos do elogio tiver SUBIU DE ELO, comente sobre na mensagem de forma ironica (ex: trolou mas mesmo assim ainda subiu de elo)
+
 Regras:
 1. Use gírias como: bagre, cone, pinou, cego, mão de alface, jogou de monitor desligado.
 2. Seja irônico e engraçado, mas É ESTRITAMENTE PROIBIDO usar palavrões.
@@ -118,7 +125,7 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     else:
         modelo_escolhido = modelo_leve
     #Montando o prompt
-    prompt = f"O jogador {nome_jogador} resolveu jogar de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
+    prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
     for motivo in motivos:
         if 'K/D' in motivo:
             kd = pegar_entre(motivo, '(',')')

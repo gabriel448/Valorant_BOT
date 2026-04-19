@@ -355,6 +355,9 @@ async def enviar_embeds(dados_envio):
     discord_id = dados_envio['discord_id']
     client = dados_envio['client']
 
+    motivos_punicao_IA = punicao['motivos_punicao_IA']
+    motivos_elogio_IA = elogio['motivos_elogio_IA']
+
     for destino in destinos:
         id_canal = destino['canal']
         id_cargo = destino['cargo']
@@ -366,13 +369,24 @@ async def enviar_embeds(dados_envio):
             print(f'Cargo configurado mas canal nao configurado')
             continue
         
+        if punicao['punitivo'] and elogio['merece_elogio']:
+            textos_elogio_temp = list(motivos_elogio_IA)
+            textos_punicao_temp = list(motivos_punicao_IA)
+
+            motivos_punicao_IA.append("O JOGADOR FOI PUNIDO MAS TAMBEM FOI ELOGIADO,MOTIVO DOS ELOGIOS:")
+            for m_elogio in textos_elogio_temp:
+                motivos_punicao_IA.append(m_elogio)
+            
+            motivos_elogio_IA.append('O JOGADOR FOI ELOGIADO MAS TAMBEM FOI PUNIDO, MOTIVO DAS PUNICOES:')
+            for m_punicao in textos_punicao_temp:
+                motivos_elogio_IA.append(m_punicao)
+
         if punicao['punitivo']:
             msg = StringIO()
             for m in punicao['motivos_punicao']:
                 msg.write(f"- {m}\n")
 
             if modo_ia not in embeds_gerados:
-
                 embeds_gerados[modo_ia] = await gerar_embed(dados_envio, modo_ia, msg)
             modo = 'Punicao ' + str(modo_ia)
 

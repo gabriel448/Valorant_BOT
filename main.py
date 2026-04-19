@@ -88,7 +88,7 @@ async def monitoramento_continuo():
 
                 #verifica se eh realmente uma partida nova           
                 nova_partida = await verificar_novo_match_id(dados_de_envio_match_id)
-
+                
                 if not nova_partida:
                     print(f"Nenhuma nova partida para {nome_jogador}")
                     await asyncio.sleep(1.5)
