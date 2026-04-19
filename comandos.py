@@ -2,15 +2,121 @@ import discord
 from discord import app_commands
 import aiohttp
 import os
+from io import StringIO
 
+from utils import gerar_embed
 from api import obter_puuid_henrik
 from database import cadastrar_alvo_bd, configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
-from utils import calcular_elo_explanator
+from utils import calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
 
 load_dotenv()
-MEU_ID_DISCORD = os.getenv('MEU_ID_DISCORD')
+
+class MenuMotivos(discord.ui.Select):
+        def __init__(self, tipo_aviso, jogador, agente, mapa, client):
+            self.tipo_aviso = tipo_aviso
+            self.jogador = jogador
+            self.agente = agente
+            self.mapa = mapa
+            self.client = client
+            
+            # Define as "Checkboxes" (Opções do Menu) dependendo do tipo
+            opcoes = []
+            if tipo_aviso == 'punicao':
+                opcoes = [
+                    discord.SelectOption(label="Caiu de Elo", description="Simula a queda para o Prata 1", value="caiu"),
+                    discord.SelectOption(label="Zero Kills", description="Jogou 13 rounds e não matou ninguém", value="zero"),
+                    discord.SelectOption(label="K/D Horrível", description="Simula um K/D de 0.2", value="kd"),
+                    discord.SelectOption(label="Loss Streak", description="Simula 5 derrotas seguidas", value="streak"),
+                    discord.SelectOption(label="Só atira no peito", description="Simula 85% de bodyshot", value="peito")
+                ]
+            else:
+                opcoes = [
+                    discord.SelectOption(label="Subiu de Elo", description="Simula a subida para o Diamante 1", value="subiu"),
+                    discord.SelectOption(label="Amasou o Lobby (MVP)", description="Simula K/D 2.5 com 25 kills", value="mvp")
+                ]
+
+            # max_values permite selecionar vários motivos ao mesmo tempo
+            super().__init__(placeholder="Selecione os motivos (pode marcar vários)...", min_values=1, max_values=len(opcoes), options=opcoes)
+
+        async def callback(self, interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
+            
+            # 1. Preparando as listas de motivos baseadas nas escolhas
+            motivos = []
+            motivos_IA = []
+            rank_up = False
+            
+            # Valores falsos genéricos para preencher o visual
+            kills, deaths, assists = 5, 20, 2
+            
+            if self.tipo_aviso == 'punicao':
+                if "caiu" in self.values:
+                    motivos.append("Caiu pro Prata 1 kkk")
+                    motivos_IA.append("CAIU DE ELO, AGORA O JOGADOR ESTA Prata 1")
+                if "zero" in self.values:
+                    motivos.append("jogou 13 rounds e fez ZERO abates.")
+                    motivos_IA.append("JOGADOR JOGOU 13 E FEZ ZERO ABATES")
+                    kills = 0
+                if "kd" in self.values:
+                    motivos.append("K/D de 0.25 (5/20/2).")
+                    motivos_IA.append("K/D de 0.25 (5/20/2). JOGADOR OBTEVE UM PESSIMO KD NESSA PARTIDA")
+                if "streak" in self.values:
+                    motivos.append("5 derrotas seguidas e contando")
+                    motivos_IA.append("JOGADOR CHEGOU NA SEQUENCIA DE 5 DERRTOAS SEGUIDAS")
+                if "peito" in self.values:
+                    motivos.append("**85.0%** dos tiros foi no peito")
+                    motivos_IA.append("**85.0%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA")
+            else:
+                kills, deaths, assists = 25, 10, 5
+                if "subiu" in self.values:
+                    motivos.append("subiu pro Diamante 1")
+                    motivos_IA.append("JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO Diamante 1")
+                    rank_up = True
+                if "mvp" in self.values:
+                    motivos.append("K/D de 2.50 (25/10/5).")
+                    motivos_IA.append("K/D de 2.50 (25/10/5). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
+
+            temporada_atual = await pegar_temporada_atual()
+            elo_imagem = pegar_url_elo(18, temporada_atual)
+
+            # 2. Criando o "Objeto Falso" (Mock) idêntico ao que o seu loop geraria
+            dados_envio_falso = {
+                'punicao': {'punitivo': self.tipo_aviso == 'punicao', 'motivos_punicao': motivos, 'motivos_punicao_IA': motivos_IA},
+                'elogio': {'merece_elogio': self.tipo_aviso == 'elogio', 'motivos_elogio': motivos, 'motivos_elogio_IA': motivos_IA, 'rank_up': rank_up},
+                'dados_embed': {
+                    'nome_agente': self.agente,
+                    'mapa': self.mapa,
+                    'foto_agente': "https://media.valorant-api.com/agents/320b2a48-4d9b-a075-30f1-1f93a9b638fa/displayicon.png", # Imagem Sova
+                    'banner_jogador': "https://media.valorant-api.com/playercards/fc209787-414b-10d0-dcac-048323c8f59b/wideart.png",
+                    'elo_imagem': elo_imagem # Imagem dima 1
+                },
+                'dados_jogador': {'kills': kills, 'deaths': deaths, 'assists': assists},
+                'nome_jogador': self.jogador,
+                'client': self.client,
+                'destinos': [], 
+                'discord_id': interaction.user.id
+            }
+
+            # 3. Formata os motivos em string usando seu padrão
+            msg = StringIO()
+            for m in motivos:
+                msg.write(f"- {m}\n")
+
+            # 4. Chama a função real de gerar o Embed e aciona a IA
+            modo_teste = 1 if self.tipo_aviso == 'punicao' else 'elogio'
+            embed_gerado = await gerar_embed(dados_envio_falso, modo_teste, msg)
+
+            # 5. Envia o resultado APENAS para você ver
+            await interaction.followup.send(content="🔧 **Resultado do Teste:**", embed=embed_gerado, ephemeral=True)
+
+
+class ViewTestes(discord.ui.View):
+    def __init__(self, tipo_aviso, jogador, agente, mapa, client):
+        super().__init__(timeout=60)
+        self.add_item(MenuMotivos(tipo_aviso, jogador, agente, mapa, client))
+
 class PaginacaoHelp(discord.ui.View):
     def __init__(self, embed_guia, embeds_paginas):
         super().__init__(timeout=180) # Os botões param de funcionar após 3 minutos para não pesar a memória
@@ -42,8 +148,8 @@ class PaginacaoHelp(discord.ui.View):
             view=self
         )
 
-load_dotenv()
 HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
+MEU_ID_DISCORD = int(os.getenv('MEU_ID_DISCORD'))
 def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, cache_partidas):
 
     # ----- CADASTRAR ALVO -----
@@ -283,14 +389,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
 
         lista_para_imagem = []
         
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://valorant-api.com/v1/competitivetiers") as resp:
-                if resp.status == 200:
-                    dados_tiers = await resp.json()
-                    # O [-1] pega a temporada competitiva mais recente!
-                    temporada_atual = dados_tiers['data'][-1]['tiers'] 
-                else:
-                    temporada_atual = []
+        temporada_atual = await pegar_temporada_atual()
         
         # 2. Prepara os dados e busca assets (Banner e Ícone do Anti-Rank)
         for jogador in top_jogadores:
@@ -315,10 +414,8 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             # O índice do rank (pontos // 3) + 3 costuma bater com os IDs da API (Ferro 1 = 3, etc)
             indice_api = (pontos // 3) + 3 
             if indice_api > 27: indice_api = 27 # Limite do Radiante
-            icon_url = None
-            if temporada_atual and indice_api < len(temporada_atual):
-                icon_url = temporada_atual[indice_api].get('largeIcon')
-
+            icon_url = pegar_url_elo(indice_api, temporada_atual)
+            
             lista_para_imagem.append({
                 'nome': nome_completo,
                 'rank': rank_nome,
@@ -432,5 +529,25 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         await interaction.response.send_message(
             f"🧹 **Cache Limpo!** {tamanho_antes} partidas foram apagadas da memória RAM.", 
+            ephemeral=True
+        )
+
+    @tree.command(name="notificacao-teste", description="[DEV] Gera um alerta de teste (ninguém mais vê).")
+    @app_commands.choices(tipo_aviso=[
+        app_commands.Choice(name="Punição", value="punicao"),
+        app_commands.Choice(name="Elogio", value="elogio")
+    ])
+    async def notificacao_teste_cmd(interaction: discord.Interaction, tipo_aviso: app_commands.Choice[str], jogador: str, agente: str, mapa: str):
+        
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Acesso Negado. Este comando é apenas para manutenção.", ephemeral=True)
+            return
+
+        view = ViewTestes(tipo_aviso.value, jogador, agente, mapa, client)
+        
+        # Envia a interface de botões apenas para você
+        await interaction.response.send_message(
+            f"🛠️ **Painel de Teste:** Configure os motivos do aviso para **{jogador}** de **{agente}** na **{mapa}**.", 
+            view=view, 
             ephemeral=True
         )

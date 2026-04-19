@@ -5,6 +5,7 @@ import discord
 from msg import gerar_humilhacao, gerar_elogio
 from io import StringIO
 from datetime import datetime
+import aiohttp
 
 def calcular_elo_explanator(pontos):
     """Converte os pontos do Explanator em um nome de Elo do Valorant."""
@@ -477,3 +478,32 @@ async def atualizar_status_discord(client, jogadores):
         name=f"{len(jogadores)} alvos | Última checagem: {hora_correta}"
     )
     await client.change_presence(status=discord.Status.online, activity=atividade)
+
+async def pegar_temporada_atual():
+    """
+    pega as urls dos tiers da temporada atual do valorant
+    """
+    temporada_atual = None
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://valorant-api.com/v1/competitivetiers") as resp:
+            if resp.status == 200:
+                dados_tiers = await resp.json()
+                # O [-1] pega a temporada competitiva mais recente!
+                temporada_atual = dados_tiers['data'][-1]['tiers'] 
+            else:
+                print("Falha ao encontrar a temporada atual")
+                temporada_atual = []
+    
+    return temporada_atual
+
+def pegar_url_elo(indice_api: int, temporada_atual):
+    """
+    recebe o indice e  temporada atual e RETORNA a url do elo
+    """
+    icon_url =  None
+    if temporada_atual and indice_api < len(temporada_atual):
+        icon_url = temporada_atual[indice_api].get('largeIcon')
+    else:
+        print('Erro ao pegar url do icone de elo, verifique os parametros passados para pegar_url_elo()')
+    return icon_url
