@@ -10,9 +10,9 @@ HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
 async def _fazer_requisicao_get(url: str):
     """
     TIMEOUT
-    Aplica o timeout de 15s e lida com os erros para não travar o bot caso a api nao responder nunca.
+    Aplica o timeout de 30s e lida com os erros para não travar o bot caso a api nao responder nunca.
     """
-    timeout_api = aiohttp.ClientTimeout(total=15)
+    timeout_api = aiohttp.ClientTimeout(total=30)
     cabecalhos = {"Authorization": HENRIK_API_KEY}
 
     try:
