@@ -66,6 +66,9 @@ async def verificar_novo_match_id(dados):
             
             # Atualiza o matchID no banco de dados
             await atualizar_match_id(puuid, novo_matchID)
+
+            #coloca o novo match id no cache
+            cache_partidas_vistas.append(novo_matchID)
             print(f"Match id atualizado para {nome_jogador}")
             return True
         else:
