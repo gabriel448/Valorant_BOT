@@ -222,47 +222,34 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # montando o embed
         embed = discord.Embed(
-            title="🚀 OPERAÇÃO: CÉREBRO NOVO (Grok-2)",
+            title="💎 AGRADECIMENTOS - PROJETO GROK",
             description=(
-                "Fala tropa, mensagem do dev Sousinha, estamos com **30 usuários ativos** e batemos no teto do Gemini. "
-                "a API do gemini so permite **20 mensagens por dia**, oque passa a ser um problema a partir de agora," 
-                " principalmente agora que estou com uma ideia topi que precisa que esse limite seja expandido.\n\n"
-                " Entt, vamos precisar migrar para o motor do **Grok** (xAI), que eh pago, mas por sorte, eh bem barato na verdade "
-                "mas no momento nao tenho esse valor, entao como maneira de ajudar o projeto e ver se voces realmente estao gostando do BOT, "
-                "vamos fazer uma vaquinha, somos 30 usuarios, **se cada um ajudar com 1 real que seja, ja vamos conseguir!!!**\n\n"
+                "dev Sousa aqui dnv, **batemos a meta pro projeto do grok em menos de 1 dia!!** voces sao fodas."
+                "Graças a vocês, o bot terá um cérebro novo, mais rápido e com bem mais personalidade, obrigado por tornarem isso possivel."
+                "Isso me incentiva dms a continuar trabalhando todo dia pra **melhorar cada vez mais o explanator.**"
             ),
-            color=0xFFD700 # Dourado para destacar a meta
+            color=0x00BFFF # Azul Cyan para diferenciar do dourado da arrecadação
         )
 
-        # Campo 1: Os Benefícios
+        #Lista de Colaboradores (Adicione os nomes aqui)
+        colaboradores = [
+            "• gust9391",
+            "• smoothzx",
+            "• addeoru.",
+            "• smoothzx"
+            # Adicione mais nomes seguindo este padrão
+        ]
+        
+        lista_nomes = "\n".join(colaboradores)
+        
         embed.add_field(
-            name="🧠 Por que mudar?", 
-            value=(
-                "• **Capacidade:** 33.000 mensagens garantidas (Adeus limite diário!).\n"
-                "• **Velocidade:** Respostas quase instantâneas, bem menos delay.\n"
-                "• **Personalidade:** A personalidade do Grok se encaixa muito mais com o Explanator."
-            ), 
-            inline=False
-        )
-
-        # Campo 2: A Meta
-        embed.add_field(
-            name="📊 Meta de Arrecadação", 
-            value=(
-                "**Objetivo:** R$ 30,00 ($5 em Créditos da API + taxas)."
-            ), 
-            inline=False
-        )
-
-        # Campo 3: Como Contribuir
-        embed.add_field(
-            name="💸 Como ajudar?", 
-            value="Qualquer valor ajuda a manter o Explanator rodando! Envie via PIX:\n`bb7c4351-f373-4eb5-83b1-b135443af2e9`", 
+            name="👑 Colaboradores", 
+            value=lista_nomes, 
             inline=False
         )
 
         embed.set_thumbnail(url=client.user.avatar.url)
-        embed.set_footer(text="Ajude a manter os avisos dos bagres em dia. tmj!")
+        embed.set_footer(text="O explanator não para. Obrigado, tropa!")
         
         #embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
 
