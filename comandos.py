@@ -9,6 +9,8 @@ from utils import calcular_elo_explanator
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
 
+load_dotenv()
+MEU_ID_DISCORD = os.getenv('MEU_ID_DISCORD')
 class PaginacaoHelp(discord.ui.View):
     def __init__(self, embed_guia, embeds_paginas):
         super().__init__(timeout=180) # Os botões param de funcionar após 3 minutos para não pesar a memória
@@ -104,7 +106,6 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
     @tree.command(name="patch-notes", description="[DEV] Dispara o anúncio de atualização para todos os servidores.")
     async def patch_notes(interaction: discord.Interaction):
         # Só eu posso rodar isso
-        MEU_ID_DISCORD = 473895740960407552
         
         if interaction.user.id != MEU_ID_DISCORD:
             await interaction.response.send_message("❌ Apenas o desenvolvedor supremo pode usar este comando.", ephemeral=True)
@@ -421,7 +422,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
     @tree.command(name="limpar-cache", description="[DEV] Esvazia a memória RAM de partidas do bot.")
     async def limpar_cache_cmd(interaction: discord.Interaction):
         # Proteção de segurança
-        MEU_ID_DISCORD = 473895740960407552 
+    
         if interaction.user.id != MEU_ID_DISCORD:
             await interaction.response.send_message("❌ Apenas o desenvolvedor pode limpar o cache.", ephemeral=True)
             return
