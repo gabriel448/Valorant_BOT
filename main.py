@@ -24,7 +24,7 @@ class MeuBot(discord.Client):
 
     async def setup_hook(self):
         # 2. Chama a função instaladora passando a árvore (tree) e o bot (self)
-        configurar_comandos(self.tree, self)
+        configurar_comandos(self.tree, self, cache_partidas_vistas)
         
         # 3. Sincroniza os comandos com o Discord
         #await self.tree.sync()

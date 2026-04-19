@@ -42,7 +42,7 @@ class PaginacaoHelp(discord.ui.View):
 
 load_dotenv()
 HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
-def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
+def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, cache_partidas):
 
     # ----- CADASTRAR ALVO -----
     @tree.command(name="cadastrar-alvo", description="Cadastra um amigo para o monitoramento de baitamento no Valorant.")
@@ -416,3 +416,20 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client):
         
         # Envia a mensagem (ephemeral=True para não poluir o chat do servidor)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    # ----- LIMPAR CACHE -----
+    @tree.command(name="limpar-cache", description="[DEV] Esvazia a memória RAM de partidas do bot.")
+    async def limpar_cache_cmd(interaction: discord.Interaction):
+        # Proteção de segurança
+        MEU_ID_DISCORD = 473895740960407552 
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Apenas o desenvolvedor pode limpar o cache.", ephemeral=True)
+            return
+            
+        tamanho_antes = len(cache_partidas)
+        cache_partidas.clear()
+        
+        await interaction.response.send_message(
+            f"🧹 **Cache Limpo!** {tamanho_antes} partidas foram apagadas da memória RAM.", 
+            ephemeral=True
+        )
