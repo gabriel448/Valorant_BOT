@@ -247,8 +247,8 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
 
     if dados_elo['elo_atual_int'] < dados_jogador['elo_banco_int']:
         punitivo = True
-        motivos_punicao.append(f'Caiu pro {dados_elo['elo_atual_nome']} kkk')
-        motivos_punicao.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo['elo_atual_nome']}')
+        motivos_punicao.append(f'Caiu pro {dados_elo["elo_atual_nome"]} kkk')
+        motivos_punicao.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo["elo_atual_nome"]}')
     
     if dados_elo['elo_atual_int'] != dados_jogador['elo_banco_int']:
         await atualizar_tier_jogador(dados_jogador['puuid'], dados_elo['elo_atual_int'])
@@ -270,8 +270,8 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
 
     if dados_jogador['porcentagem_peito'] >= 84 and not dados_jogador['e_mono_sniper']:
         punitivo = True
-        motivos_punicao.append(f'**{dados_jogador['porcentagem_peito']:.1f}%** dos tiros foi no peito')
-        motivos_punicao_IA.append(f'**{dados_jogador['porcentagem_peito']:.1f}%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA')
+        motivos_punicao.append(f'**{dados_jogador["porcentagem_peito"]:.1f}%** dos tiros foi no peito')
+        motivos_punicao_IA.append(f'**{dados_jogador["porcentagem_peito"]:.1f}%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA')
     
     punicao = {
         'punitivo': punitivo,
@@ -294,13 +294,13 @@ async def verificar_regras_elogio(dados_elo, dados_jogador):
     if dados_elo['elo_atual_int'] > dados_jogador['elo_banco_int'] and dados_jogador['elo_banco_int'] != 0:
         rank_up = True
         merece_elogio = True
-        motivos_elogio.append(f'subiu pro {dados_elo['elo_atual_nome']}')
-        motivos_elogio_IA.append(f'JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO {dados_elo['elo_atual_nome']}')
+        motivos_elogio.append(f'subiu pro {dados_elo["elo_atual_nome"]}')
+        motivos_elogio_IA.append(f'JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO {dados_elo["elo_atual_nome"]}')
 
     if dados_jogador['kd_ratio'] >= 2.0 and dados_jogador['kills'] >= 20:
         merece_elogio = True
-        motivos_elogio.append(f'K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}).')
-        motivos_elogio_IA.append(f'K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO')
+        motivos_elogio.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}).")
+        motivos_elogio_IA.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
 
     elogio = {
         'merece_elogio': merece_elogio,
