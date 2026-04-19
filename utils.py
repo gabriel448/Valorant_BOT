@@ -244,13 +244,14 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
     punitivo = False
     motivos_punicao = []
     motivos_punicao_IA = []
+    elo_banco_int = dados_jogador['elo_banco_int']
 
-    if dados_elo['elo_atual_int'] < dados_jogador['elo_banco_int']:
+    if dados_elo['elo_atual_int'] < elo_banco_int and dados_elo['elo_atual_int'] >= 3:
         punitivo = True
         motivos_punicao.append(f'Caiu pro {dados_elo["elo_atual_nome"]} kkk')
         motivos_punicao.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo["elo_atual_nome"]}')
     
-    if dados_elo['elo_atual_int'] != dados_jogador['elo_banco_int']:
+    if dados_elo['elo_atual_int'] != elo_banco_int:
         await atualizar_tier_jogador(dados_jogador['puuid'], dados_elo['elo_atual_int'])
 
     if dados_jogador['rounds_jogados'] >= 10 and dados_jogador['kills'] == 0:
@@ -291,7 +292,9 @@ async def verificar_regras_elogio(dados_elo, dados_jogador):
     motivos_elogio_IA = []
     rank_up = False
 
-    if dados_elo['elo_atual_int'] > dados_jogador['elo_banco_int'] and dados_jogador['elo_banco_int'] != 0:
+    elo_banco_int = dados_jogador['elo_banco_int']
+
+    if dados_elo['elo_atual_int'] > elo_banco_int and elo_banco_int >= 3:
         rank_up = True
         merece_elogio = True
         motivos_elogio.append(f'subiu pro {dados_elo["elo_atual_nome"]}')
