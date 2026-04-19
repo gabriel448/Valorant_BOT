@@ -222,31 +222,49 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # montando o embed
         embed = discord.Embed(
-            title="📢 PATCH NOTES!",
-            description="O explanator é justo! Chegou a hora de exaltar os heróis e expor os verdadeiros bagres do servidor com a nova atualização.",
-            color=0x00BFFF # Azul claro/Cyan para notas de atualização
+            title="🚀 OPERAÇÃO: CÉREBRO NOVO (Grok-2)",
+            description=(
+                "Fala tropa, mensagem do dev Sousinha, estamos com **30 usuários ativos** e batemos no teto do Gemini. "
+                "a API do gemini so permite **20 mensagens por dia**, oque passa a ser um problema a partir de agora," 
+                " principalmente agora que estou com uma ideia topi que precisa que esse limite seja expandido.\n\n"
+                " Entt, vamos precisar migrar para o motor do **Grok** (xAI), que eh pago, mas por sorte, eh bem barato na verdade "
+                "mas no momento nao tenho esse valor, entao como maneira de ajudar o projeto e ver se voces realmente estao gostando do BOT, "
+                "vamos fazer uma vaquinha, somos 30 usuarios, **se cada um ajudar com 1 real que seja, ja vamos conseguir!!!**\n\n"
+            ),
+            color=0xFFD700 # Dourado para destacar a meta
         )
-        
-        # Campo 1: Elogios e Subida de Rank
+
+        # Campo 1: Os Benefícios
         embed.add_field(
-            name="🏆 1. O Sistema de elogios", 
-            value="Se você destruir na partida, o explanator vai te reconhecer publicamente:\n"
-                "**• Subir de Elo:** O bot comemora a sua promoção no chat com a imagem oficial do seu novo elo!\n"
-                "**• Amassar o Lobby:** Fez mais de 20 abates e K/D acima de 2.0? O explanator vai te exaltar no chat.", 
+            name="🧠 Por que mudar?", 
+            value=(
+                "• **Capacidade:** 33.000 mensagens garantidas (Adeus limite diário!).\n"
+                "• **Velocidade:** Respostas quase instantâneas, bem menos delay.\n"
+                "• **Personalidade:** A personalidade do Grok se encaixa muito mais com o Explanator."
+            ), 
             inline=False
         )
-        
-        # Campo 2: Leaderboard de Bagres
+
+        # Campo 2: A Meta
         embed.add_field(
-            name="📉 2. O 'Anti-Rank' do Explanator (`/top-bagres`)", 
-            value="A Parede da Vergonha foi inaugurada! Transformamos a ruindade em uma tabela de liderança competitiva.\n"
-                "**• A Dinâmica:** Foi humilhado pelo bot? Ganha 1 ponto. Foi elogiado? Perde 1 ponto.\n"
-                "**• Os Elos:** A cada 3 pontos acumulados, você sobe de Elo no nosso ranking (indo do Ferro ao Radiante do explanator).\n"
-                "**• O Comando:** Use `/top-bagres` para gerar uma imagem com o Top 10 dos piores do servidor, puxando os Banners do jogo ao vivo!", 
+            name="📊 Meta de Arrecadação", 
+            value=(
+                "**Objetivo:** R$ 30,00 ($5 em Créditos da API + taxas)."
+            ), 
             inline=False
         )
+
+        # Campo 3: Como Contribuir
+        embed.add_field(
+            name="💸 Como ajudar?", 
+            value="Qualquer valor ajuda a manter o Explanator rodando! Envie via PIX:\n`bb7c4351-f373-4eb5-83b1-b135443af2e9`", 
+            inline=False
+        )
+
+        embed.set_thumbnail(url=client.user.avatar.url)
+        embed.set_footer(text="Ajude a manter os avisos dos bagres em dia. tmj!")
         
-        embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
+        #embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
 
         # dispara pra todos os servidores
         canais = await pegar_todos_canais_configurados()
