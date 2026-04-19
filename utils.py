@@ -252,7 +252,7 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
     if dados_elo['elo_atual_int'] < elo_banco_int and dados_elo['elo_atual_int'] >= 3:
         punitivo = True
         motivos_punicao.append(f'Caiu pro {dados_elo["elo_atual_nome"]} kkk')
-        motivos_punicao.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo["elo_atual_nome"]}')
+        motivos_punicao_IA.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo["elo_atual_nome"]}')
     
     if dados_elo['elo_atual_int'] != elo_banco_int:
         await atualizar_tier_jogador(dados_jogador['puuid'], dados_elo['elo_atual_int'])
