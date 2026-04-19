@@ -58,124 +58,129 @@ async def monitoramento_continuo():
         jogadores = await pegar_todos_alvos()
         
         for jogador in jogadores:
-            puuid = jogador['riot_puuid']
-            ultimo_match_salvo = jogador['last_match_id']
-            discord_id = jogador['discord_user_id']
-            nome_jogador = jogador['riot_game_name']
-            streak_atual = jogador['loss_streak']
-
-            partidas_recentes = await pegar_partidas_recentes(puuid)
-            if len(partidas_recentes) == 0:
-                print('Nenhuma partida recente encontrada pela API, proximo ...')
-                continue
-            
-            metadata_recente = partidas_recentes[0].get('metadata')
-            if not metadata_recente or not metadata_recente.get('matchid'):
-                print('Metadata corrompida ou vazia, indo para proximo jogador...')
-                continue
-
-            novo_match_id = partidas_recentes[0]['metadata']['matchid']
-            
-            dados_de_envio_match_id = {
-                'novo_match_id': novo_match_id,
-                'ultimo_match_salvo': ultimo_match_salvo,
-                'nome_jogador': nome_jogador,
-                'cache_partidas_vistas': cache_partidas_vistas,
-                'puuid': puuid
-            } 
-
-            #verifica se eh realmente uma partida nova           
-            nova_partida = await verificar_novo_match_id(dados_de_envio_match_id)
-
-            if not nova_partida:
-                print(f"Nenhuma nova partida para {nome_jogador}")
-                await asyncio.sleep(1.5)
-                continue
-            
-            #olha as ultimas 5 partidas pra atualizar o losstreak
-            dados_ultimas_partidas = {
-                'partidas_recentes': partidas_recentes,
-                'ultimo_match_salvo': ultimo_match_salvo,
-                'puuid': puuid,
-                'nome_jogador': nome_jogador,
-                'streak_atual': streak_atual
-            }
-            await verificar_ultimas_partidas(dados_ultimas_partidas)
-
-            dados_partida = await obter_detalhes_partida(novo_match_id)
-
             try:
-                modo = dados_partida['data']['metadata']['mode']
-            except:
-                modo = None
 
-            if modo != "Competitive":
-                print(f"Era apenas um {modo}")
-                continue
-            
-            if not dados_partida:
-                print(f'Erro: dados da partida do jogador {nome_jogador} Nulos')
-                continue
-            
-            #pega informacoes do desempenho do jogador na partida para serem julgadas
-            dados_jogador = await pegar_dados_do_jogador(dados_partida, puuid, jogador)
-            
-            if not dados_jogador:
-                print(f'Erro: dados do jogador {nome_jogador} Nulos')
-                continue
-            
-            #pega informacoes do elo do jogador, como imagem, nome etc...
-            dados_elo = await pegar_dados_do_elo(dados_jogador['dados_mmr'])
-            
-            if not dados_elo:
-                print(f'Erro: nao foi possivel pegar os dados do elo do jogador {nome_jogador}')
-                continue
+                puuid = jogador['riot_puuid']
+                ultimo_match_salvo = jogador['last_match_id']
+                discord_id = jogador['discord_user_id']
+                nome_jogador = jogador['riot_game_name']
+                streak_atual = jogador['loss_streak']
 
-            if dados_jogador['elo_banco_int'] == 0:
-                #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
-                print(f"[{nome_jogador}] Elo base registrado: {dados_elo['elo_atual_nome']} ({dados_elo['elo_atual_int']})")
-            
-            #verifica se ele cometeu algum crime, e devolve um dicionario com o relatorio pra gerar a humilhacao
-            punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
-
-            #verifica se ele jogou bem e devolve um dicionario ralatorio pra gerar o elogio
-            elogio = await verificar_regras_elogio(dados_elo,dados_jogador)
-
-            if punicao['punitivo'] or elogio['merece_elogio']:
-                #pega alguns elementos visuais e escritos pra montar o embed pro discord
-                dados_embed = pegar_dados_para_o_embed(dados_jogador,dados_partida)
+                partidas_recentes = await pegar_partidas_recentes(puuid)
+                if len(partidas_recentes) == 0:
+                    print('Nenhuma partida recente encontrada pela API, proximo ...')
+                    continue
                 
-                destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
+                metadata_recente = partidas_recentes[0].get('metadata')
+                if not metadata_recente or not metadata_recente.get('matchid'):
+                    print('Metadata corrompida ou vazia, indo para proximo jogador...')
+                    continue
 
-                #ajusta a pontuacao do rank do explanator no banco de dados
-                if punicao['punitivo']:
-                    await alterar_pontos_explanator(puuid, 1)
-                if elogio['merece_elogio']:
-                    await alterar_pontos_explanator(puuid, -1)
+                novo_match_id = partidas_recentes[0]['metadata']['matchid']
                 
-                if not destinos:
-                        print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  
-
-                dados_envio = {
-                    'destinos': destinos,
-                    'discord_id': discord_id,
-                    'dados_jogador': dados_jogador,
+                dados_de_envio_match_id = {
+                    'novo_match_id': novo_match_id,
+                    'ultimo_match_salvo': ultimo_match_salvo,
                     'nome_jogador': nome_jogador,
-                    'dados_embed' : dados_embed,
-                    'punicao': punicao,
-                    'elogio': elogio,
-                    'client': client
-                }
+                    'cache_partidas_vistas': cache_partidas_vistas,
+                    'puuid': puuid
+                } 
 
-                #aqui faz bastante coisa, pega todos os canais que eh pra mandar o aviso, gera os tipos de embeds necessarios
-                #depois envie pra todos os canais
-                await enviar_embeds(dados_envio)       
-                   
-            else:
-                print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
-            await asyncio.sleep(5)
+                #verifica se eh realmente uma partida nova           
+                nova_partida = await verificar_novo_match_id(dados_de_envio_match_id)
+
+                if not nova_partida:
+                    print(f"Nenhuma nova partida para {nome_jogador}")
+                    await asyncio.sleep(1.5)
+                    continue
                 
+                #olha as ultimas 5 partidas pra atualizar o losstreak
+                dados_ultimas_partidas = {
+                    'partidas_recentes': partidas_recentes,
+                    'ultimo_match_salvo': ultimo_match_salvo,
+                    'puuid': puuid,
+                    'nome_jogador': nome_jogador,
+                    'streak_atual': streak_atual
+                }
+                await verificar_ultimas_partidas(dados_ultimas_partidas)
 
+                dados_partida = await obter_detalhes_partida(novo_match_id)
+
+                try:
+                    modo = dados_partida['data']['metadata']['mode']
+                except:
+                    modo = None
+
+                if modo != "Competitive":
+                    print(f"Era apenas um {modo}")
+                    continue
+                
+                if not dados_partida:
+                    print(f'Erro: dados da partida do jogador {nome_jogador} Nulos')
+                    continue
+                
+                #pega informacoes do desempenho do jogador na partida para serem julgadas
+                dados_jogador = await pegar_dados_do_jogador(dados_partida, puuid, jogador)
+                
+                if not dados_jogador:
+                    print(f'Erro: dados do jogador {nome_jogador} Nulos')
+                    continue
+                
+                #pega informacoes do elo do jogador, como imagem, nome etc...
+                dados_elo = await pegar_dados_do_elo(dados_jogador['dados_mmr'])
+                
+                if not dados_elo:
+                    print(f'Erro: nao foi possivel pegar os dados do elo do jogador {nome_jogador}')
+                    continue
+
+                if dados_jogador['elo_banco_int'] == 0:
+                    #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
+                    print(f"[{nome_jogador}] Elo base registrado: {dados_elo['elo_atual_nome']} ({dados_elo['elo_atual_int']})")
+                
+                #verifica se ele cometeu algum crime, e devolve um dicionario com o relatorio pra gerar a humilhacao
+                punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
+
+                #verifica se ele jogou bem e devolve um dicionario ralatorio pra gerar o elogio
+                elogio = await verificar_regras_elogio(dados_elo,dados_jogador)
+
+                if punicao['punitivo'] or elogio['merece_elogio']:
+                    #pega alguns elementos visuais e escritos pra montar o embed pro discord
+                    dados_embed = pegar_dados_para_o_embed(dados_jogador,dados_partida)
+                    
+                    destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
+
+                    #ajusta a pontuacao do rank do explanator no banco de dados
+                    if punicao['punitivo']:
+                        await alterar_pontos_explanator(puuid, 1)
+                    if elogio['merece_elogio']:
+                        await alterar_pontos_explanator(puuid, -1)
+                    
+                    if not destinos:
+                            print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  
+
+                    dados_envio = {
+                        'destinos': destinos,
+                        'discord_id': discord_id,
+                        'dados_jogador': dados_jogador,
+                        'nome_jogador': nome_jogador,
+                        'dados_embed' : dados_embed,
+                        'punicao': punicao,
+                        'elogio': elogio,
+                        'client': client
+                    }
+
+                    #aqui faz bastante coisa, pega todos os canais que eh pra mandar o aviso, gera os tipos de embeds necessarios
+                    #depois envie pra todos os canais
+                    await enviar_embeds(dados_envio)       
+                        
+                else:
+                    print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                print(f"Erro inesperado ao processar {nome_jogador}: {e}")
+                continue
+    
         # Atualiza o status do bot no Discord para mostrar que ele está vivo
         await atualizar_status_discord(client, jogadores)
         
