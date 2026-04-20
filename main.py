@@ -100,7 +100,8 @@ async def monitoramento_continuo():
                     'ultimo_match_salvo': ultimo_match_salvo,
                     'puuid': puuid,
                     'nome_jogador': nome_jogador,
-                    'streak_atual': streak_atual
+                    'streak_atual': streak_atual,
+                    'cache_partidas_vistas': cache_partidas_vistas
                 }
                 await verificar_ultimas_partidas(dados_ultimas_partidas)
 

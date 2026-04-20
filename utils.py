@@ -90,6 +90,7 @@ async def verificar_ultimas_partidas(dados):
     puuid = dados['puuid']
     nome_jogador = dados['nome_jogador']
     streak_atual = dados['streak_atual']
+    cache_partidas_vistas = dados['cache_partidas_vistas']
 
     novas_partidas = []
     for partida in partidas_recentes:
@@ -102,7 +103,7 @@ async def verificar_ultimas_partidas(dados):
             continue 
             
         # 100% de certeza que metadata existe e tem um matchid seguro para comparar
-        if metadata['matchid'] == ultimo_match_salvo:
+        if metadata['matchid'] == ultimo_match_salvo or metadata['matchid'] in cache_partidas_vistas:
             break # chegou onde o bot conhecia
             
         novas_partidas.append(partida)
