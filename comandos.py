@@ -236,7 +236,9 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             "• gust9391",
             "• smoothzx",
             "• addeoru.",
-            "• smoothzx"
+            "• rifas1829",
+            "• vampwide",
+            "• vampwide"
             # Adicione mais nomes seguindo este padrão
         ]
         
