@@ -525,13 +525,3 @@ def pegar_url_elo(indice_api: int, temporada_atual):
 
 
 
-def pegar_entre(texto, inicio, fim):
-    """
-    pega uma parte de um texto especifica
-    """
-    try:
-        start = texto.index(inicio) + len(inicio)
-        end = texto.index(fim, start)
-        return texto[start:end]
-    except ValueError:
-        return None  # caso não encontre
