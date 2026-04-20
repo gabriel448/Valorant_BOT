@@ -233,12 +233,16 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
 
         #Lista de Colaboradores (Adicione os nomes aqui)
         colaboradores = [
+            "• sp4ckzz",
             "• gust9391",
             "• smoothzx",
             "• addeoru.",
             "• rifas1829",
             "• vampwide",
-            "• vidalzin"
+            "• vidalzin",
+            "• duarteeez",
+            "• felipewu",
+            "• kevhz_zx.021"
             # Adicione mais nomes seguindo este padrão
         ]
         
