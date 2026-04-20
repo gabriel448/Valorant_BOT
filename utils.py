@@ -521,3 +521,16 @@ def pegar_url_elo(indice_api: int, temporada_atual):
     else:
         print('Erro ao pegar url do icone de elo, verifique os parametros passados para pegar_url_elo()')
     return icon_url
+
+
+
+def pegar_entre(texto, inicio, fim):
+    """
+    pega uma parte de um texto especifica
+    """
+    try:
+        start = texto.index(inicio) + len(inicio)
+        end = texto.index(fim, start)
+        return texto[start:end]
+    except ValueError:
+        return None  # caso não encontre

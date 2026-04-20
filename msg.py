@@ -1,14 +1,18 @@
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from openai import AsyncOpenAI
 import os
 from dotenv import load_dotenv
 import asyncio
 
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+from utils import pegar_entre
 
-#configurando a biblioteca com a chave da api
-genai.configure(api_key=GEMINI_API_KEY)
+load_dotenv()
+GROK_API_KEY = os.getenv("GROK_API_KEY")
+
+cliente_grok = AsyncOpenAI(
+    api_key=GROK_API_KEY,
+    base_url="https://api.x.ai/v1"
+)
 
 #treinando a IA
 instrucoes_elogio = """
@@ -60,7 +64,7 @@ Regras estritas:
 14. Sempre que o jogador cair de elo mas tiver ficado com um K/D/A positivo ou neutro (kills>=mortes) pegue leve, apenas sacaneie a queda de elo
 """
 
-intrucoes_leves = """"
+instrucoes_leves = """"
 Você é um narrador esportivo zueiro e irônico de Valorant.
 Seu objetivo é zoar jogadores que tiveram um desempenho horrível, mas de forma amigável.
 DETALHES IMPORTANTES:
@@ -83,47 +87,16 @@ Regras:
 14. Use expressoes de exagero como "jesus cristo!" "meu deus do ceu" "Ai fica dificil"
 """
 
-#tirando filtros
-safety_settings_toxico = {
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-}
-
-
-#inicializa o modelo(2.5 Flash pq eh rapido e gratis)
-modelo_toxico = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=intrucoes_toxicas,
-    safety_settings=safety_settings_toxico
-)
-
-modelo_leve = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=intrucoes_leves
-)
-
-modelo_comentarista = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=instrucoes_comentarista
-)
-
-modelo_elogio = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=instrucoes_elogio
-)
-
 async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     """
-    gera um texto de humilhacao exclusivo com IA e retorna uma str
+    gera um texto de humilhacao exclusivo com IA(Grok) e RETORNA uma str
     """
     if modo_ia == 1:
-        modelo_escolhido = modelo_toxico
+        instrucao_escolhida = intrucoes_toxicas
     elif modo_ia == 3:
-        modelo_escolhido = modelo_comentarista
+        instrucao_escolhida = instrucoes_comentarista
     else:
-        modelo_escolhido = modelo_leve
+        instrucao_escolhida = instrucoes_leves
     #Montando o prompt
     prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e foi um desastre. Olha os crimes cometidos:\n"
     for motivo in motivos:
@@ -139,15 +112,22 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     prompt += "\nGere a mensagem de humilhação agora com base nesses dados"
 
     try:
-        resposta = await modelo_escolhido.generate_content_async(prompt)
-        return resposta.text
+        resposta = await cliente_grok.chat.completions.create(
+            model="grok-4-1-fast-non-reasoning", # Você pode usar "grok-2-latest" também
+            messages=[
+                {"role": "system", "content": instrucao_escolhida},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8 # 0.8 deixa o bot bem criativo e sarcástico
+        )
+        return resposta.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Erro na geração da IA: {e}")
-        return f"O {nome_jogador} foi tão mal que até a IA travou de desgosto tentando ofender ele."
+        print(f"Erro na geração do Grok: {e}")
+        return f"O {nome_jogador} foi tão mal que até a IA travou de desgosto."
 
 async def gerar_elogio(nome_jogador, agente, mapa, motivos):
     """
-    Gera um texto exclusivo de elogio com IA.
+    Gera um texto exclusivo de elogio com IA (Grok) e RETORNA uma str
     """
     prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e amassou a partida. Olha os feitos:\n"
     for motivo in motivos:
@@ -155,21 +135,21 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
     prompt += "\nGere a mensagem de exaltação agora com base nesses dados."
 
     try:
-        resposta = await modelo_elogio.generate_content_async(prompt)
-        return resposta.text
+        resposta = await cliente_grok.chat.completions.create(
+            model="grok-beta", 
+            messages=[
+                {"role": "system", "content": instrucoes_elogio},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        return resposta.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Erro na geração do elogio: {e}")
-        return f"O {nome_jogador} amassou tanto que até a IA travou tentando elogiar essa lenda."
+        print(f"Erro na geração do elogio (Grok): {e}")
+        return f"O {nome_jogador} amassou tanto que até a IA travou tentando elogiar."
 
-def pegar_entre(texto, inicio, fim):
-    try:
-        start = texto.index(inicio) + len(inicio)
-        end = texto.index(fim, start)
-        return texto[start:end]
-    except ValueError:
-        return None  # caso não encontre
     
-async def testar_ia(modo):
+async def testar_ia(modo, modo_humilhacao):
     print("🤖 Iniciando o teste do Tribunal da IA...\n")
     
     #dados falsos (Mock)
@@ -186,7 +166,7 @@ async def testar_ia(modo):
         "K/D de 2.0 (20/10/7)"
     ]
     if modo == 1:
-        resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_ia=2)
+        resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_humilhacao)
     elif modo == 2:
         resposta = await gerar_elogio(jogador_teste,agente_teste,mapa_teste,elogios_teste)
     else:
@@ -205,5 +185,6 @@ async def descobrir_modelos():
 
 if __name__ == "__main__":
     import asyncio
-    #1 = humilhacao ; 2 = elogio
-    asyncio.run(testar_ia(2))
+    # 1. (1 = humilhacao ; 2 = elogio)
+    #2. (1 = toxico; 2 = leve; 3 = comentarista)
+    asyncio.run(testar_ia(2, 1))
