@@ -224,7 +224,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         embed = discord.Embed(
             title="💎 AGRADECIMENTOS - PROJETO GROK",
             description=(
-                "dev Sousa aqui dnv, **batemos a meta pro projeto do grok em menos de 1 dia!!** voces sao fodas."
+                "dev Sousa aqui dnv, **batemos a meta pro projeto do grok em apenas 1 dia!!** voces sao fodas."
                 "Graças a vocês, o bot terá um cérebro novo, mais rápido e com bem mais personalidade, obrigado por tornarem isso possivel."
                 "Isso me incentiva dms a continuar trabalhando todo dia pra **melhorar cada vez mais o explanator.**"
             ),
