@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 
-from persona import instrucoes_comentarista, instrucoes_elogio, instrucoes_leves, instrucoes_toxicas
+from persona import instrucoes_comentarista, instrucoes_elogio, instrucoes_leves, instrucoes_toxicas, instrucoes_respostas
 
 def pegar_entre(texto, inicio, fim):
     """
@@ -23,6 +23,30 @@ cliente_grok = AsyncOpenAI(
     api_key=GROK_API_KEY,
     base_url="https://api.x.ai/v1"
 )
+
+async def gerar_resposta_rebate(nome_autor, mensagem_usuario, contexto_aviso):
+    """Gera a resposta do bot analisando o contexto e espelhando a toxicidade."""
+    
+    # Entregando o cenário completo para o Grok analisar
+    prompt = (
+        f"Contexto do seu julgamento anterior: '{contexto_aviso}'\n"
+        f"O usuário chamado '{nome_autor}' te respondeu dizendo o seguinte: '{mensagem_usuario}'\n"
+        f"Gere a sua resposta imediata seguindo as diretrizes de contexto."
+    )
+
+    try:
+        resposta = await cliente_grok.chat.completions.create(
+            model="grok-beta", 
+            messages=[
+                {"role": "system", "content": instrucoes_respostas},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8
+        )
+        return resposta.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Erro na geração do rebate: {e}")
+        return "Tô com tanta preguiça de ler isso que meu sistema travou."
 
 async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     """
@@ -55,7 +79,7 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
                 {"role": "system", "content": instrucao_escolhida},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.8 # 1 deixa o bot bem criativo e sarcástico
+            temperature=0.85 # 1 deixa o bot bem criativo e sarcástico
         )
         return resposta.choices[0].message.content.strip()
     except Exception as e:

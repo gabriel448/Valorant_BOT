@@ -4,12 +4,16 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from discord import app_commands
+import time
+import random
 
 from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
-from utils import atualizar_status_discord, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds
+from utils import atualizar_status_discord, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
+from msg import gerar_resposta_rebate
+
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
 cache_partidas_vistas = deque(maxlen=500)
@@ -189,6 +193,59 @@ async def monitoramento_continuo():
         segundos = 15
         print(f'Ciclo de sondagem terminado esperando {segundos}')
         await asyncio.sleep(segundos)
+
+@client.event
+async def on_message(message):
+    # 1. Ignora se a mensagem for do próprio bot
+    if message.author == client.user:
+        return
+
+    # 2. Verifica se o usuário está respondendo a alguma mensagem (Reply)
+    if message.reference is not None:
+        msg_id_referencia = message.reference.message_id
+        
+        # 3. Verifica se a mensagem respondida é um aviso recente do Explanator
+        if msg_id_referencia in avisos_ativos:
+            aviso = avisos_ativos[msg_id_referencia]
+            agora = time.time()
+            
+            # 4. Verifica se já se passaram 5 minutos (300 segundos)
+            if agora - aviso["tempo"] > 300:
+                #Apaga da memória para economizar espaço
+                del avisos_ativos[msg_id_referencia]
+                return # Ignora silenciosamente
+                
+            # 5. Lógica de Interações (2 chances)
+            user_id = message.author.id
+            
+            # Pega quantas vezes esse usuário já respondeu a ESTE aviso (começa com 0)
+            vezes_respondidas = aviso["interacoes"].get(user_id, 0)
+            
+            if vezes_respondidas == 0:
+                # PRIMEIRA CHANCE: O Bot argumenta de volta
+                aviso["interacoes"][user_id] = 1 # Atualiza o contador
+                
+                # Mostra o status "Digitando..." no Discord
+                async with message.channel.typing(): 
+                    resposta_ia = await gerar_resposta_rebate(message.author.name, message.content, aviso["contexto"])
+                    await message.reply(resposta_ia)
+                    
+            elif vezes_respondidas == 1:
+                # SEGUNDA CHANCE: O Bot ignora com deboche
+                aviso["interacoes"][user_id] = 2 # Atualiza o contador
+                
+                emojis_deboche = ["💤", "🥱", "🤡", "🤫", "😴"]
+                emoji_escolhido = random.choice(emojis_deboche)
+                
+                # manda um emoji como resposta
+                await message.reply(emoji_escolhido)
+                
+            else:
+                # TERCEIRA EM DIANTE: Ignora totalmente (Shadowban do aviso)
+                pass
+
+    # Garante que os comandos de barra (/) continuem funcionando!
+    await client.process_commands(message)
 
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':

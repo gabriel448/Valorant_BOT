@@ -6,6 +6,10 @@ from msg import gerar_humilhacao, gerar_elogio
 from io import StringIO
 from datetime import datetime
 import aiohttp
+import time
+
+# Guarda os IDs das mensagens. Formato: {msg_id: {"tempo": timestamp, "interacoes": {}, "contexto": "texto do embed"}}
+avisos_ativos = {}
 
 def calcular_elo_explanator(pontos):
     """Converte os pontos do Explanator em um nome de Elo do Valorant."""
@@ -348,6 +352,19 @@ async def enviar_embeds(dados_envio):
     """
     pega todos os destinos da notificacao, manda fazer os embeds e depois envia
     """
+    agora = time.time()
+    lixo_para_apagar = []
+
+    for msg_id, dados in avisos_ativos.items():
+        if agora - dados["tempo"] > 300: # 300 segundos = 5 minutos
+            lixo_para_apagar.append(msg_id)
+
+    for msg_id in lixo_para_apagar:
+        del avisos_ativos[msg_id]
+
+    if len(lixo_para_apagar) > 0:
+        print(f"Faxina: {len(lixo_para_apagar)} aviso(s) expirado(s) removido(s) da memória.")
+    
     embeds_gerados = {}
     destinos = dados_envio['destinos']
     punicao = dados_envio['punicao']
@@ -390,7 +407,7 @@ async def enviar_embeds(dados_envio):
             if modo_ia not in embeds_gerados:
                 embeds_gerados[modo_ia] = await gerar_embed(dados_envio, modo_ia, msg)
             modo = 'Punicao ' + str(modo_ia)
-
+            
         if elogio['merece_elogio']:
             msg = StringIO()
             for m in elogio['motivos_elogio']:
@@ -409,9 +426,22 @@ async def enviar_embeds(dados_envio):
                 texto_ping += f"<@&{id_cargo}>"
             
             if punicao['punitivo']:
-                await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
+                msg_enviada = await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
+
+                avisos_ativos[msg_enviada.id] = {
+                    "tempo": time.time(),
+                    "interacoes": {}, # Vai guardar {id_do_usuario: quantidade_de_respostas}
+                    "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
+                }
             if elogio['merece_elogio']:
-                await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
+                msg_enviada = await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
+
+                avisos_ativos[msg_enviada.id] = {
+                    "tempo": time.time(),
+                    "interacoes": {}, # Vai guardar {id_do_usuario: quantidade_de_respostas}
+                    "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
+                }
+
             await asyncio.sleep(2.5)
 
             print(f"Notificação de punição enviada para {nome_jogador} (Modo {modo}) no canal {id_canal}!!")   
