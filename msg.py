@@ -73,7 +73,7 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
 
     try:
         resposta = await cliente_grok.chat.completions.create(
-            model="grok-beta", 
+            model="grok-4-1-fast-non-reasoning", 
             messages=[
                 {"role": "system", "content": instrucoes_elogio},
                 {"role": "user", "content": prompt}
@@ -116,4 +116,4 @@ if __name__ == "__main__":
     import asyncio
     # 1. (1 = humilhacao ; 2 = elogio)
     #2. (1 = toxico; 2 = leve; 3 = comentarista)
-    asyncio.run(testar_ia(1, 1))
+    asyncio.run(testar_ia(2, 1))
