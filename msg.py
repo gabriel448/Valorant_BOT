@@ -36,7 +36,7 @@ async def gerar_resposta_rebate(nome_autor, mensagem_usuario, contexto_aviso):
 
     try:
         resposta = await cliente_grok.chat.completions.create(
-            model="grok-beta", 
+            model="grok-4-1-fast-non-reasoning", 
             messages=[
                 {"role": "system", "content": instrucoes_respostas},
                 {"role": "user", "content": prompt}

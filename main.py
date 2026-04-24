@@ -226,7 +226,8 @@ async def on_message(message):
                 aviso["interacoes"][user_id] = 1 # Atualiza o contador
                 
                 # Mostra o status "Digitando..." no Discord
-                async with message.channel.typing(): 
+                async with message.channel.typing():
+                    await asyncio.sleep(1)
                     resposta_ia = await gerar_resposta_rebate(message.author.name, message.content, aviso["contexto"])
                     await message.reply(resposta_ia)
                     

@@ -434,9 +434,9 @@ async def enviar_embeds(dados_envio):
                     "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
                 }
             if elogio['merece_elogio']:
-                msg_enviada = await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
+                msg_enviada_elogio = await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
 
-                avisos_ativos[msg_enviada.id] = {
+                avisos_ativos[msg_enviada_elogio.id] = {
                     "tempo": time.time(),
                     "interacoes": {}, # Vai guardar {id_do_usuario: quantidade_de_respostas}
                     "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
