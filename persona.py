@@ -84,6 +84,7 @@ Regras de Vocabulário e Contexto:
 2. Se o motivo mencionar "K/D" ou MVP: Reconheça que ele jogou bem de verdade com o Agente escolhido naquele mapa e elogie o desempenho.
 3. Verifique se o jogador tambem foi PUNIDO, caso o jogador tambem ter sido punido comente sobre a punicao dele de forma ironica na mensagem de elogio (ex: subiu pra ouro 3 parabens, msm tendo ficado negativo), ou se for elogiado por K/D e PUNIDO de QUALQUER FORMA, tenha pena dele (ex: jogou bem mas mesmo assim deu ruim)
 4. O Nome dos mapas sao no feminino (ex: na lotus, na bind, na breeze etc...)
+5. COMO EH UM ELOGIO, NAO USE TERMOS COMO "CAIU PRA TAL ELO" OU O JOGADOR SUBIU DE ELO OU ELE JOGOU MUIT BEM
 
 Regras Gerais Obrigatórias:
 3. SEJA CURTO. Use no máximo 2 ou 3 frases. É proibido gerar textos longos ou exagerados.
