@@ -7,7 +7,7 @@ from discord import app_commands
 import time
 import random
 
-from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador
+from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador, atualizar_match_id
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
@@ -75,30 +75,38 @@ async def monitoramento_continuo():
                     print('Nenhuma partida recente encontrada pela API, proximo ...')
                     continue
                 
-                metadata_recente = partidas_recentes[0].get('metadata')
-                if not metadata_recente or not metadata_recente.get('matchid'):
-                    print('Metadata corrompida ou vazia, indo para proximo jogador...')
-                    continue
+                partidas_nao_vistas = []
+                for partida in partidas_recentes:
+                    mid = partida.get('metadata', {}).get('matchid')
+                    if not mid: continue
+                    
+                    # Chegou na última partida que o bot conhece
+                    if mid == ultimo_match_salvo or mid in cache_partidas_vistas:
+                        break
+                    partidas_nao_vistas.append(partida)
 
-                novo_match_id = partidas_recentes[0]['metadata']['matchid']
-                
-                dados_de_envio_match_id = {
-                    'novo_match_id': novo_match_id,
-                    'ultimo_match_salvo': ultimo_match_salvo,
-                    'nome_jogador': nome_jogador,
-                    'cache_partidas_vistas': cache_partidas_vistas,
-                    'puuid': puuid
-                } 
-
-                #verifica se eh realmente uma partida nova           
-                nova_partida = await verificar_novo_match_id(dados_de_envio_match_id)
-                
-                if not nova_partida:
+                if len(partidas_nao_vistas) == 0:
                     print(f"Nenhuma nova partida para {nome_jogador}")
+                    # Guarda as 5 últimas no cache pra caso a API dê lag no restart
+                    for p in partidas_recentes:
+                        mid = p.get('metadata', {}).get('matchid')
+                        if mid and mid not in cache_partidas_vistas:
+                            cache_partidas_vistas.append(mid)
                     await asyncio.sleep(1.5)
                     continue
+                print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
+
+
+                #Pega a partida MAIS ANTIGA dentro das novas para ler na ordem cronológica correta
+                partida_alvo = partidas_nao_vistas[-1]
+                novo_match_id = partida_alvo['metadata']['matchid']
+                print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
+
+                # Atualiza o banco e o cache com ELA (no próximo loop, ele avança pra mais recente se tiver)
+                await atualizar_match_id(puuid, novo_match_id)
+                print(f"Match id atualizado para {nome_jogador}")
+                cache_partidas_vistas.append(novo_match_id)
                 
-                #olha as ultimas 5 partidas pra atualizar o losstreak
                 dados_ultimas_partidas = {
                     'partidas_recentes': partidas_recentes,
                     'ultimo_match_salvo': ultimo_match_salvo,
@@ -107,6 +115,8 @@ async def monitoramento_continuo():
                     'streak_atual': streak_atual,
                     'cache_partidas_vistas': cache_partidas_vistas
                 }
+
+                #olha as ultimas 5 partidas pra atualizar o losstreak
                 await verificar_ultimas_partidas(dados_ultimas_partidas)
 
                 dados_partida = await obter_detalhes_partida(novo_match_id)

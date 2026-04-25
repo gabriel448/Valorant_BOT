@@ -49,40 +49,6 @@ def ajuste_fuso_horario(hora:str, diferenca:int):
             print("Erro: formato de hora inválido.")
             return None
     return None
-    
-
-async def verificar_novo_match_id(dados):
-    """
-    verifica se o matchID retornado pela API eh novo e se ja nao esta no cache de partidas vistas, se for realmente uma nova partida
-    ele atualiza no banco de dados
-    RETORNA True se for uma partida nova e False se for uma ja conhecida ou nula
-    """
-    novo_matchID = dados['novo_match_id']
-    ultimo_match_salvo = dados['ultimo_match_salvo']
-    nome_jogador = dados['nome_jogador']
-    cache_partidas_vistas = dados['cache_partidas_vistas']
-    puuid = dados['puuid']
-
-    if novo_matchID:
-        #Compara se o ID mudou
-        if novo_matchID != ultimo_match_salvo and novo_matchID not in cache_partidas_vistas:
-            print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
-            print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_matchID}")
-            
-            # Atualiza o matchID no banco de dados
-            await atualizar_match_id(puuid, novo_matchID)
-
-            #coloca o novo match id no cache
-            cache_partidas_vistas.append(novo_matchID)
-            print(f"Match id atualizado para {nome_jogador}")
-            return True
-        else:
-            # Nenhuma partida nova ocorreu
-            return False
-    else:
-        print('Erro, novo MatchID Nulo')
-        return False
-
 
 async def verificar_ultimas_partidas(dados):
     """
