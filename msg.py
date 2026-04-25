@@ -112,7 +112,7 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
         return f"O {nome_jogador} amassou tanto que até a IA travou tentando elogiar."
 
     
-async def testar_ia(modo, modo_humilhacao):
+async def testar_ia(modo, modo2):
     print("🤖 Iniciando o teste do Tribunal da IA...\n")
     
     #dados falsos (Mock)
@@ -129,17 +129,26 @@ async def testar_ia(modo, modo_humilhacao):
         "K/D de 2.0 (20/10/7)"
     ]
     if modo == 1:
-        resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo_humilhacao)
+        resposta = await gerar_humilhacao(jogador_teste, agente_teste, mapa_teste, crimes_teste,modo2)
     elif modo == 2:
         resposta = await gerar_elogio(jogador_teste,agente_teste,mapa_teste,elogios_teste)
+    elif modo == 3:
+        msg = input('Escreva a mensagem enviada: ')
+        if modo2 == 1:
+            contexto = 'K/D de 0.5 de chamber na split e caiu pro dima 1'
+        elif modo2 == 2:
+            contexto = 'K/D de 2.5 de Chamber na split e subiu pro dima 2'
+        
+        resposta = await gerar_resposta_rebate('sousa', msg, contexto)
     else:
-        print('Modo invalido, escolha 1(humilhacao) ou 2(elogio)')
+        print('Modo invalido, escolha 1(humilhacao), 2(elogio) ou 3 (resposta)')
     
 
     print(f"TEXTO GERADO:  '{resposta}'")
 
 if __name__ == "__main__":
     import asyncio
-    # 1. (1 = humilhacao ; 2 = elogio)
-    #2. (1 = toxico; 2 = leve; 3 = comentarista)
-    asyncio.run(testar_ia(2, 1))
+    # 1. (1 = humilhacao ; 2 = elogio ; 3 = resposta)
+    #2. MODO 1 == (1 = toxico; 2 = leve; 3 = comentarista)
+    #3. MODO 3 == (1 = punicao; 2 = elogio)
+    asyncio.run(testar_ia(3, 2))
