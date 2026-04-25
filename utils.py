@@ -439,7 +439,7 @@ async def enviar_embeds(dados_envio):
                 avisos_ativos[msg_enviada_elogio.id] = {
                     "tempo": time.time(),
                     "interacoes": {}, # Vai guardar {id_do_usuario: quantidade_de_respostas}
-                    "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
+                    "contexto": embeds_gerados['elogio'].description # O texto que a IA usou no aviso
                 }
 
             await asyncio.sleep(2.5)
