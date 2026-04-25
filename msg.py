@@ -66,6 +66,8 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
             kills, deaths, assists = kd.split('/')
             if int(kills) < int(deaths):
                 prompt += f"- {motivo} NEGATIVO\n"
+            elif int(kills) == int(deaths):
+                prompt += f"- {motivo} FICOU NEUTRO\n"
             else:
                 prompt += f"- {motivo} FICOU POSITIVO PELO MENOS\n"
             continue
