@@ -239,8 +239,10 @@ async def on_message(message):
                 async with message.channel.typing():
                     await asyncio.sleep(1)
                     resposta_ia = await gerar_resposta_rebate(message.author.name, message.content, aviso["contexto"])
-                    await message.reply(resposta_ia)
+
+                    msg_resposta_bot = await message.reply(resposta_ia)
                     
+                    avisos_ativos[msg_resposta_bot.id] = aviso
             elif vezes_respondidas == 1:
                 # SEGUNDA CHANCE: O Bot ignora com deboche
                 aviso["interacoes"][user_id] = 2 # Atualiza o contador
