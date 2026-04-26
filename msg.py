@@ -151,4 +151,4 @@ if __name__ == "__main__":
     # 1. (1 = humilhacao ; 2 = elogio ; 3 = resposta)
     #2. MODO 1 == (1 = toxico; 2 = leve; 3 = comentarista)
     #3. MODO 3 == (1 = punicao; 2 = elogio)
-    asyncio.run(testar_ia(3, 2))
+    asyncio.run(testar_ia(3, 1))
