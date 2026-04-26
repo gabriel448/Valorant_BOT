@@ -11,7 +11,7 @@ from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
-from utils import atualizar_status_discord, verificar_novo_match_id, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
+from utils import atualizar_status_discord, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
 from msg import gerar_resposta_rebate
 
 
