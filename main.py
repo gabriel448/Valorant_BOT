@@ -69,6 +69,7 @@ async def monitoramento_continuo():
                 discord_id = jogador['discord_user_id']
                 nome_jogador = jogador['riot_game_name']
                 streak_atual = jogador['loss_streak']
+                win_streak = jogador['win_streak']
 
                 partidas_recentes = await pegar_partidas_recentes(puuid)
                 if len(partidas_recentes) == 0:
@@ -113,6 +114,7 @@ async def monitoramento_continuo():
                     'puuid': puuid,
                     'nome_jogador': nome_jogador,
                     'streak_atual': streak_atual,
+                    'win_streak_atual': win_streak,
                     'cache_partidas_vistas': cache_partidas_vistas
                 }
 
@@ -156,7 +158,7 @@ async def monitoramento_continuo():
                 punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
 
                 #verifica se ele jogou bem e devolve um dicionario ralatorio pra gerar o elogio
-                elogio = await verificar_regras_elogio(dados_elo,dados_jogador)
+                elogio = await verificar_regras_elogio(dados_elo,dados_jogador, win_streak)
 
                 if punicao['punitivo'] or elogio['merece_elogio']:
                     #pega alguns elementos visuais e escritos pra montar o embed pro discord

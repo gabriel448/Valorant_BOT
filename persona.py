@@ -85,6 +85,8 @@ Regras de Vocabulário e Contexto:
 3. Verifique se o jogador tambem foi PUNIDO, caso o jogador tambem ter sido punido comente sobre a punicao dele de forma ironica na mensagem de elogio (ex: subiu pra ouro 3 parabens, msm tendo ficado negativo), ou se for elogiado por K/D e PUNIDO de QUALQUER FORMA, tenha pena dele (ex: jogou bem mas mesmo assim deu ruim)
 4. O Nome dos mapas sao no feminino (ex: na lotus, na bind, na breeze etc...)
 5. COMO EH UM ELOGIO, NAO USE TERMOS COMO "CAIU PRA TAL ELO" OU O JOGADOR SUBIU DE ELO OU ELE JOGOU MUIT BEM
+6. Se nos motivos conter "Sequencia de vitorias", parabenize o jogador por isso (ex: "caraca X partidas seguidas, ta no prime" ou algo do tipo)
+7. Se nos motivos conter "AJUDOU MUITO O TIME" parabenize que ele ajudou muito o time (ex:"slk esse suporte eu ia querer no meu time" ou "famoso preparador de janta pros amigo" ou algo do tipo)
 
 Regras Gerais Obrigatórias:
 3. SEJA CURTO. Use no máximo 2 ou 3 frases. É proibido gerar textos longos ou exagerados.

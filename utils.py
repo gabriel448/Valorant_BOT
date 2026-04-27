@@ -1,4 +1,4 @@
-from database import atualizar_match_id, atualizar_loss_streak,atualizar_tier_jogador
+from database import atualizar_loss_streak,atualizar_tier_jogador, atualizar_win_streak
 from api import obter_mmr_jogador
 import asyncio
 import discord
@@ -64,6 +64,7 @@ async def verificar_ultimas_partidas(dados):
     nome_jogador = dados['nome_jogador']
     streak_atual = dados['streak_atual']
     cache_partidas_vistas = dados['cache_partidas_vistas']
+    win_streak_atual = dados['win_streak_atual']
 
     novas_partidas = []
     for partida in partidas_recentes:
@@ -101,6 +102,7 @@ async def verificar_ultimas_partidas(dados):
                     venceu = partida['teams'][time_minusculo]['has_won']
                     if venceu:
                         streak_atual = 0
+                        win_streak_atual += 1
                     elif rounds_ganhos == rounds_perdidos:
                         print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Loss streak ignorada.")
                     else:
@@ -110,7 +112,8 @@ async def verificar_ultimas_partidas(dados):
     
     # Atualiza o loss streak no banco de dados
     await atualizar_loss_streak(puuid, streak_atual)
-    print(f"Lossstreak atualizado para {nome_jogador}")
+    await atualizar_win_streak(puuid, win_streak_atual)
+    print(f"Lossstreak e winstreak atualizados para {nome_jogador}")
 
 async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
     """
@@ -260,7 +263,7 @@ async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
     return punicao
     
 
-async def verificar_regras_elogio(dados_elo, dados_jogador):
+async def verificar_regras_elogio(dados_elo, dados_jogador, win_streak):
     """
     Pega os dados adquiridos anteriormente e verifica se se encaixa em algum elogio
     RETORNA um dicionario com: merece_elogio(bool), motivos_elogio(list[str]), motivos_elogio_IA(list[str]), rank_up(bool)
@@ -282,6 +285,16 @@ async def verificar_regras_elogio(dados_elo, dados_jogador):
         merece_elogio = True
         motivos_elogio.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}).")
         motivos_elogio_IA.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
+
+    if win_streak >= 4:
+        merece_elogio = True
+        motivos_elogio.append(f"{win_streak} vitórias seguidas!")
+        motivos_elogio_IA.append(f"JOGADOR ESTÁ EM UMA SEQUÊNCIA DE {win_streak} VITÓRIAS SEGUIDAS, O CARA TA IMPARÁVEL")
+
+    if dados_jogador['assists'] >= 13 and dados_jogador['kd_ratio'] >= 1.0:
+        merece_elogio = True
+        motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
+        motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
 
     elogio = {
         'merece_elogio': merece_elogio,

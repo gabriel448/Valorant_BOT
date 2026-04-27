@@ -28,7 +28,9 @@ async def iniciar_banco():
         loss_streak INTEGER DEFAULT 0,
         pontos_explanator INTEGER DEFAULT 0,
         alertas_md3 INTEGER DEFAULT 0,
-        mes_referencia VARCHAR(7) DEFAULT '1970-01'
+        mes_referencia VARCHAR(7) DEFAULT '1970-01',
+        total_punicoes INTEGER DEFAULT 0,
+        total_elogios INTEGER DEFAULT 0
     );
     """
 
@@ -60,8 +62,7 @@ async def iniciar_banco():
     print("Estrutura Relacional (3 Tabelas) criada com sucesso!")
 
     try:
-        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN total_punicoes INTEGER DEFAULT 0;")
-        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN total_elogios INTEGER DEFAULT 0;")
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN win_streak INTEGER DEFAULT 0;")
     except asyncpg.exceptions.DuplicateColumnError:
         pass
 
@@ -176,6 +177,15 @@ async def atualizar_loss_streak(riot_puuid, novo_streak):
     """
     conn = await asyncpg.connect(DATABASE_URL)
     query = "UPDATE jogadores_monitorados SET loss_streak = $1 WHERE riot_puuid = $2"
+    await conn.execute(query, novo_streak, riot_puuid)
+    await conn.close()
+
+async def atualizar_win_streak(riot_puuid, novo_streak):
+    """"
+    atualiza a contagem de vitorias seguidas do jogador
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "UPDATE jogadores_monitorados SET win_streak = $1 WHERE riot_puuid = $2"
     await conn.execute(query, novo_streak, riot_puuid)
     await conn.close()
 
