@@ -234,7 +234,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             name="⚖️ O MD3", 
             value=(
                 "O seu Rank do Explanator agora é mensal. Seus **próximos 3 avisos** (seja punição ou elogio) vão definir onde você cai na tabela.\n"
-                "⚠️ **Aviso:** Durante a MD3, o peso dos seus crimes é MULTIPLICADO. 3 partida desastrosa agora pode te jogar direto no *Diamante 3* dos bagres."
+                "⚠️ **Aviso:** Durante a MD3, o peso dos seus crimes é MULTIPLICADO. 3 partidas desastrosas agora podem te jogar direto no *Diamante 3* dos bagres."
             ), 
             inline=False
         )

@@ -195,7 +195,7 @@ async def pegar_todos_canais_configurados():
     registros = await conn.fetch("SELECT alert_channel_id, alert_role_id FROM configuracoes_servidor")
     await conn.close()
     
-    return [registro['alert_channel_id'] for registro in registros]
+    return registros
 
 async def configurar_cargo_alerta(guild_id, role_id):
     """Atualiza o cargo do servidor. Retorna True se atualizou, False se o servidor não existir."""
