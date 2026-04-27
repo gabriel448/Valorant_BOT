@@ -253,8 +253,8 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             name="📊 Novo Comando: `/status-explanator`", 
             value=(
                 "Quer ver sua ficha criminal completa? Agora você pode consultar o status de qualquer jogador.\n"
-                "• **Histórico Total:** Veja todas as suas punições e elogios desde o dia 1.\n"
-                "• **Rank & P/E:** Acompanhe seu elo atual e sua taxa de Punição/Elogio (P/E)."
+                "• **Histórico Total:** Veja quantas punições e elogios você recebeu contando a partir de hoje.\n"
+                "• **Rank & P/E:** Acompanhe seu elo atual e sua taxa de Punição/Elogio (P/E)(quanto maior, pior!!)."
             ), 
             inline=False
         )
