@@ -57,7 +57,8 @@ O núcleo analítico julga o desempenho dos jogadores baseado em regras de negó
 ### 🏆 Condições de Elogio
 * **Promoção de Elo (Rank Up):** O bot comemora a subida de Elo com um Embed dourado exclusivo e a imagem oficial da nova medalha do jogador.
 * **Alerta de MVP:** Se o jogador finalizar a partida com K/D Ratio igual ou superior a `2.0` e, no mínimo, `20` eliminações, o modo Narrador da IA gera uma exaltação pública elogiando o desempenho.
-
+* **Sequência de Vitórias (Win Streak):** Se o jogador engatar uma sequência de `4` ou mais vitórias seguidas, a IA reconhece o momento imparável e parabeniza a consistência.
+* **O Garçom (Trabalho em Equipe):** Se o jogador finalizar a partida com `13` ou mais assistências **E** mantiver um K/D neutro ou positivo (>= 1.0), a IA exalta o seu trabalho e impacto positivo para a equipe.
 ---
 
 ## 📊 O "Anti-Rank" do Explanator
@@ -76,6 +77,8 @@ O bot conta com Slash Commands integrados para administração e visualização 
 * `/remover-alvo [riot_id]`: Remove um jogador do monitoramento e do banco de dados (Usuários normais só podem remover a si mesmos; ADMs podem remover qualquer um).
 * `/top-bagres`: Gera, compila e envia a imagem dinâmica do Leaderboard do Explanator ordenado pelos jogadores mais punidos do servidor atual.
 * `/modo-ia`: (Apenas ADMs) Altera a personalidade global de geração de texto do bot entre `toxico` (pesado e sem filtro), `leve` (ironia branda) e `comentarista` (análise formal de esports).
-
+* `/ativar-esse-canal`: *(Apenas ADMs)* Define o canal de texto atual como o local oficial onde o Explanator enviará os Alertas de Bagre e Elogios.
+* `/ativar-esse-cargo [cargo]`: *(Apenas ADMs)* Define qual cargo o bot deve marcar (pingar) automaticamente sempre que uma nova notificação for enviada.
+* `/help`: Abre o guia de primeiros passos e o manual de comandos completo do bot com navegação por botões.
   
 
