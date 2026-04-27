@@ -6,7 +6,7 @@ from io import StringIO
 
 from utils import gerar_embed
 from api import obter_puuid_henrik
-from database import cadastrar_alvo_bd, configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
+from database import cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
 from utils import calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
@@ -566,3 +566,61 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             view=view, 
             ephemeral=True
         )
+
+# ----- STATUS -----
+# ----- STATUS EXPLANATOR -----
+    @tree.command(name="status-explanator", description="Mostra a ficha e o Rank completo de um jogador.")
+    async def status_explanator_cmd(interaction: discord.Interaction, usuario: discord.Member):
+        await interaction.response.defer()
+        
+        status = await pegar_status_jogador(usuario.id)
+
+        if not status:
+            await interaction.followup.send(f"❌ O jogador {usuario.mention} não tem ficha criminal no Explanator. Está limpo (ou não foi cadastrado).")
+            return
+
+        # Cálculos e Lógica de Elo
+        punicoes = status["total_punicoes"]
+        elogios = status["total_elogios"]
+        
+        # P/E Ratio (Evitando de divisão por zero)
+        if elogios == 0:
+            pe_ratio = float(punicoes) # Se não tem elogio, P/E é igual a punição
+        else:
+            pe_ratio = punicoes / elogios
+
+        rank_nome = calcular_elo_explanator(status["pontos_explanator"], status["alertas_md3"])
+        
+        # Pega a URL do Ícone do Elo
+        temporada_atual = await pegar_temporada_atual()
+        if status["alertas_md3"] < 3:
+            icon_url = pegar_url_elo(0, temporada_atual) # Ícone Unranked
+        else:
+            indice_api = (status["pontos_explanator"] // 3) + 3 
+            if indice_api > 27: indice_api = 27 
+            icon_url = pegar_url_elo(indice_api, temporada_atual)
+
+        embed = discord.Embed(
+            title=f"📋 Ficha de Status: {status['nome_riot']}",
+            description=f"Estatísticas do jogador no Explanator.",
+            color=0x8A2BE2 # Roxo bonito
+        )
+        
+        #avatar do discord
+        avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
+        embed.set_thumbnail(url=avatar_url)
+        
+        # Ícone do Elo ao lado direito da imagem
+        if icon_url:
+            embed.set_author(name=rank_nome, icon_url=icon_url) # Coloca o ícone grande embaixo ou como banner se preferir, ou deixe no thumbnail
+
+        # Campos de informação
+        embed.add_field(name="🏆 Rank Atual", value=f"**{rank_nome}**", inline=False)
+        embed.add_field(name="🚨 Punições", value=f"{punicoes}", inline=True)
+        embed.add_field(name="🌟 Elogios", value=f"{elogios}", inline=True)
+        embed.add_field(name="⚖️ Taxa P/E", value=f"**{pe_ratio:.2f}**", inline=True)
+        
+        # Rodapé
+        embed.set_footer(text=f"ID: {usuario.id} | Explanator")
+
+        await interaction.followup.send(embed=embed)

@@ -27,10 +27,10 @@ class MeuBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        # 2. Chama a função instaladora passando a árvore (tree) e o bot (self)
+        #Chama a função instaladora passando a árvore (tree) e o bot (self)
         configurar_comandos(self.tree, self, cache_partidas_vistas)
         
-        # 3. Sincroniza os comandos com o Discord
+        #Sincroniza os comandos com o Discord
         await self.tree.sync()
         print("✅ Comandos carregados e sincronizados com sucesso!")
 

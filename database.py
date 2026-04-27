@@ -59,6 +59,12 @@ async def iniciar_banco():
     print("Tabela de associacao criada/checada com sucesso")
     print("Estrutura Relacional (3 Tabelas) criada com sucesso!")
 
+    try:
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN total_punicoes INTEGER DEFAULT 0;")
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN total_elogios INTEGER DEFAULT 0;")
+    except asyncpg.exceptions.DuplicateColumnError:
+        pass
+
     #fecha a conexao apos a config
     await conn.close()
 
@@ -304,10 +310,14 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     # 6. Salva tudo no banco
     query_update = """
         UPDATE jogadores_monitorados 
-        SET pontos_explanator = $1, alertas_md3 = $2, mes_referencia = $3
-        WHERE riot_puuid = $4;
+        SET pontos_explanator = $1, 
+            alertas_md3 = $2, 
+            mes_referencia = $3,
+            total_punicoes = total_punicoes + $4,
+            total_elogios = total_elogios + $5
+        WHERE riot_puuid = $6;
     """
-    await conn.execute(query_update, pontos, alertas_md3, mes_atual, puuid)
+    await conn.execute(query_update, pontos, alertas_md3, mes_atual, qtd_punicoes, qtd_elogios, puuid)
     await conn.close()
 
 async def pegar_top_bagres(guild_id: int):
@@ -337,3 +347,34 @@ async def pegar_top_bagres(guild_id: int):
     registros = await conn.fetch(query, guild_id, mes_atual)
     await conn.close()
     return registros
+
+async def pegar_status_jogador(discord_user_id: int):
+    """
+    Retorna o Dicionário de Perfil do Jogador, aplicando o reset virtual no mês.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    mes_atual = datetime.now().strftime("%Y-%m")
+    
+    query = """
+        SELECT 
+            riot_game_name,
+            total_punicoes,
+            total_elogios,
+            CASE WHEN mes_referencia = $2 THEN pontos_explanator ELSE 0 END as pontos_explanator,
+            CASE WHEN mes_referencia = $2 THEN alertas_md3 ELSE 0 END as alertas_md3
+        FROM jogadores_monitorados
+        WHERE discord_user_id = $1;
+    """
+    registro = await conn.fetchrow(query, discord_user_id, mes_atual)
+    await conn.close()
+    
+    if not registro:
+        return None
+        
+    return {
+        "nome_riot": registro["riot_game_name"],
+        "total_punicoes": registro["total_punicoes"],
+        "total_elogios": registro["total_elogios"],
+        "pontos_explanator": registro["pontos_explanator"],
+        "alertas_md3": registro["alertas_md3"]
+    }
