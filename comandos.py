@@ -222,51 +222,61 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # montando o embed
         embed = discord.Embed(
-            title="💎 AGRADECIMENTOS - PROJETO GROK",
+            title="🚨 ATUALIZAÇÃO DO EXPLANATOR",
             description=(
-                "dev Sousa aqui dnv, **batemos a meta pro projeto do grok em apenas 1 dia!!** voces sao fodas."
-                "Graças a vocês, o bot terá um cérebro novo, mais rápido e com bem mais personalidade, obrigado por tornarem isso possivel."
-                "Isso me incentiva dms a continuar trabalhando todo dia pra **melhorar cada vez mais o explanator.**"
+                "O mês virou. O passado foi apagado. O Explanator **resetou os elos de todo mundo.**\n"
+                "A partir de agora, vocês são apenas indigentes sem patente na tabela de líderes. O jogo virou, e as regras mudaram."
             ),
-            color=0x00BFFF # Azul Cyan para diferenciar do dourado da arrecadação
+            color=0xFF4500 # Laranja Avermelhado (Cor de Alerta/Fogo)
         )
 
-        #Lista de Colaboradores (Adicione os nomes aqui)
-        colaboradores = [
-            "• sp4ckzz",
-            "• gust9391",
-            "• smoothzx",
-            "• addeoru.",
-            "• rifas1829",
-            "• vampwide",
-            "• vidalzin",
-            "• duarteeez",
-            "• felipewu",
-            "• kevhz_zx.021"
-            # Adicione mais nomes seguindo este padrão
-        ]
-        
-        lista_nomes = "\n".join(colaboradores)
-        
         embed.add_field(
-            name="👑 Colaboradores", 
-            value=lista_nomes, 
+            name="⚖️ O MD3", 
+            value=(
+                "O seu Rank do Explanator agora é mensal. Seus **próximos 3 avisos** (seja punição ou elogio) vão definir onde você cai na tabela.\n"
+                "⚠️ **Aviso:** Durante a MD3, o peso dos seus crimes é MULTIPLICADO. 3 partida desastrosa agora pode te jogar direto no *Diamante 3* dos bagres."
+            ), 
             inline=False
         )
 
-        embed.set_thumbnail(url=client.user.avatar.url)
-        embed.set_footer(text="O explanator não para. Obrigado, tropa!")
-        
-        #embed.set_footer(text="Desenvolvido com ódio e Python. Bom jogo!")
+        embed.add_field(
+            name="🤝 Suporte (Novos Elogios)", 
+            value=(
+                "Cansado de ser chamado de cego só porque você joga pro time? A IA foi atualizada para reconhecer novos feitos:\n"
+                "• **O Garçom:** Fez 13+ assistências e não afundou o K/D: O bot vai te elogiar por dar suporte ao time.\n"
+                "• **O Imparável:** Engatou uma sequência de 4 vitórias seguidas (Win Streak): A IA vai elogiar sua consistência."
+            ), 
+            inline=False
+        )
 
-        # dispara pra todos os servidores
+        embed.add_field(
+            name="📊 Novo Comando: `/status-explanator`", 
+            value=(
+                "Quer ver sua ficha criminal completa? Agora você pode consultar o status de qualquer jogador.\n"
+                "• **Histórico Total:** Veja todas as suas punições e elogios desde o dia 1.\n"
+                "• **Rank & P/E:** Acompanhe seu elo atual e sua taxa de Punição/Elogio (P/E)."
+            ), 
+            inline=False
+        )
+
+        embed.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+        embed.set_footer(text="A MD3 já está valendo. Boa sorte .")
+
+        # Dispara pra todos os servidores cadastrados
         canais = await pegar_todos_canais_configurados()
         enviados = 0
         
-        for id_canal in canais:
+        for canal in canais:
             try:
+                id_canal = canal['alert_channel_id']
+                id_cargo = canal['alert_role_id']
                 canal = await client.fetch_channel(int(id_canal))
-                await canal.send(embed=embed)
+
+                conteudo_mensagem = ""
+                if id_cargo:
+                    conteudo_mensagem = f"<@&{id_cargo}>"
+
+                await canal.send(content=conteudo_mensagem, embed=embed)
                 enviados += 1
             except discord.errors.NotFound:
                 print(f"Canal {id_canal} não encontrado.")
@@ -274,7 +284,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
                 print(f"Sem permissão no canal {id_canal}.")
                 
         # Confirmação apenas para você
-        await interaction.followup.send(f"✅ Anúncio disparado com sucesso para {enviados} servidores!")
+        await interaction.followup.send(f"✅ Patch Notes da MD3 disparado com sucesso para {enviados} servidores!")
     
 
     # ----- CADASTRAR CARGO -----

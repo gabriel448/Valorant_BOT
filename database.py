@@ -190,9 +190,9 @@ async def atualizar_win_streak(riot_puuid, novo_streak):
     await conn.close()
 
 async def pegar_todos_canais_configurados():
-    """Busca o ID de todos os canais de alerta de todos os servidores."""
+    """Busca o ID de todos os canais de alerta e cargos configurados de todos os servidores."""
     conn = await asyncpg.connect(DATABASE_URL)
-    registros = await conn.fetch("SELECT alert_channel_id FROM configuracoes_servidor")
+    registros = await conn.fetch("SELECT alert_channel_id, alert_role_id FROM configuracoes_servidor")
     await conn.close()
     
     return [registro['alert_channel_id'] for registro in registros]
