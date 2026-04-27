@@ -165,10 +165,11 @@ async def monitoramento_continuo():
                     destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
                     #ajusta a pontuacao do rank do explanator no banco de dados
-                    if punicao['punitivo']:
-                        await alterar_pontos_explanator(puuid, 1)
-                    if elogio['merece_elogio']:
-                        await alterar_pontos_explanator(puuid, -1)
+                    qtd_punicoes = len(punicao['motivos_punicao']) if punicao['punitivo'] else 0
+                    qtd_elogios = len(elogio['motivos_elogio']) if elogio['merece_elogio'] else 0
+
+                    await alterar_pontos_explanator(puuid, qtd_punicoes, qtd_elogios)
+                    print(f'Pontos do explanator atualizados para {nome_jogador}')
                     
                     if not destinos:
                             print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  

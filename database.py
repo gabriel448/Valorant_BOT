@@ -1,6 +1,8 @@
 import asyncpg
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+
 
 #carregando a url do .env
 load_dotenv()
@@ -24,7 +26,9 @@ async def iniciar_banco():
         last_match_id VARCHAR(64) NULL,
         current_tier_int INTEGER DEFAULT 0,
         loss_streak INTEGER DEFAULT 0,
-        pontos_explanator INTEGER DEFAULT 0
+        pontos_explanator INTEGER DEFAULT 0,
+        alertas_md3 INTEGER DEFAULT 0,
+        mes_referencia VARCHAR(7) DEFAULT '1970-01'
     );
     """
 
@@ -246,15 +250,64 @@ async def pegar_dono_do_alvo(nome: str, tag: str):
     
     return registro['discord_user_id'] if registro else None
 
-async def alterar_pontos_explanator(puuid: str, pontos_para_adicionar: int):
-    """Adiciona ou remove pontos do rank do Explanator e garante que não fique negativo."""
-    conn = await asyncpg.connect(DATABASE_URL)
-    query = """
-        UPDATE jogadores_monitorados 
-        SET pontos_explanator = LEAST(GREATEST(pontos_explanator + $1, 0), 74) 
-        WHERE riot_puuid = $2;
+async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: int):
     """
-    await conn.execute(query, pontos_para_adicionar, puuid)
+    Motor da MD3 e da Temporada Regular do Explanator.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    
+    # 1. Qual é o mês atual? (ex: "2026-04")
+    mes_atual = datetime.now().strftime("%Y-%m")
+    
+    # 2. Pega os dados atuais do jogador
+    query_busca = "SELECT pontos_explanator, alertas_md3, mes_referencia FROM jogadores_monitorados WHERE riot_puuid = $1"
+    registro = await conn.fetchrow(query_busca, puuid)
+    
+    if not registro:
+        await conn.close()
+        print('Erro na busca no data base')
+        return
+
+    pontos = registro['pontos_explanator']
+    alertas_md3 = registro['alertas_md3']
+    mes_banco = registro['mes_referencia']
+    
+    # 3. LAZY RESET (Começo do mês)
+    if mes_banco != mes_atual:
+        pontos = 0
+        alertas_md3 = 0
+        
+    # 4. FASE DE MD3
+    if alertas_md3 < 3:
+        # A cada aviso na MD3, os motivos valem MUITO mais pontos. Ex: peso 6.
+        # Se ele cometeu 3 crimes num jogo só, ele ganha 18 pontos de uma vez!
+        pontos += (qtd_punicoes * 6)
+        pontos -= (qtd_elogios * 6)
+        
+        alertas_md3 += 1
+        
+        # FINALIZOU A MD3! Aplicar os limites (Clamp)
+        if alertas_md3 == 3:
+            if pontos > 53: pontos = 53 # Teto: Diamante 3
+            if pontos < 6: pontos = 6   # Piso: Ferro 3
+    
+    # 5. TEMPORADA REGULAR (Já fez a MD3)
+    else:
+        # Aqui o peso volta ao normal (+1 por crime, -1 por elogio)
+        pontos += qtd_punicoes
+        pontos -= qtd_elogios
+        
+        # Travas de segurança padrão (0 a 74)
+        if pontos > 74: pontos = 74
+        if pontos < 0: pontos = 0
+
+    # 6. Salva tudo no banco
+    query_update = """
+        UPDATE jogadores_monitorados 
+        SET pontos_explanator = $1, alertas_md3 = $2, mes_referencia = $3
+        WHERE riot_puuid = $4;
+    """
+    await conn.execute(query_update, pontos, alertas_md3, mes_atual, puuid)
     await conn.close()
 
 async def pegar_top_bagres(guild_id: int):
@@ -262,14 +315,25 @@ async def pegar_top_bagres(guild_id: int):
     Busca os 10 jogadores com mais pontos no Explanator dentro de um servidor específico.
     """
     conn = await asyncpg.connect(DATABASE_URL)
+    mes_atual = datetime.now().strftime("%Y-%m")
+
     query = """
-        SELECT j.riot_game_name, j.riot_tag_line, j.pontos_explanator, j.riot_puuid
-        FROM jogadores_monitorados j
-        INNER JOIN jogadores_servidores js ON j.discord_user_id = js.discord_user_id
-        WHERE js.guild_id = $1
-        ORDER BY j.pontos_explanator DESC
+        WITH ranking_resetado AS (
+            SELECT 
+                j.riot_game_name, 
+                j.riot_tag_line, 
+                j.riot_puuid,
+                CASE WHEN j.mes_referencia = $2 THEN j.pontos_explanator ELSE 0 END as pontos_explanator,
+                CASE WHEN j.mes_referencia = $2 THEN j.alertas_md3 ELSE 0 END as alertas_md3
+            FROM jogadores_monitorados j
+            INNER JOIN jogadores_servidores js ON j.discord_user_id = js.discord_user_id
+            WHERE js.guild_id = $1
+        )
+        SELECT * FROM ranking_resetado 
+        ORDER BY pontos_explanator DESC 
         LIMIT 10;
     """
-    registros = await conn.fetch(query, guild_id)
+
+    registros = await conn.fetch(query, guild_id, mes_atual)
     await conn.close()
     return registros

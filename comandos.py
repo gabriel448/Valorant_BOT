@@ -406,10 +406,11 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         for jogador in top_jogadores:
             puuid = jogador['riot_puuid']
             pontos = jogador['pontos_explanator']
+            alertas_md3 = jogador['alertas_md3']
             nome_completo = f"{jogador['riot_game_name']}"
             
             # Calcula o rank do Explanator
-            rank_nome = calcular_elo_explanator(pontos)
+            rank_nome = calcular_elo_explanator(pontos, alertas_md3)
             
             # Buscamos o Banner atual do jogador na API do Henrik
             # Usamos o endpoint de conta para pegar o banner (card)
@@ -423,9 +424,12 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
 
             # Mapeamento simples de Rank para ID de ícone (valorant-api.com)
             # O índice do rank (pontos // 3) + 3 costuma bater com os IDs da API (Ferro 1 = 3, etc)
-            indice_api = (pontos // 3) + 3 
-            if indice_api > 27: indice_api = 27 # Limite do Radiante
-            icon_url = pegar_url_elo(indice_api, temporada_atual)
+            if alertas_md3 < 3:
+                icon_url = pegar_url_elo(0, temporada_atual)
+            else:
+                indice_api = (pontos // 3) + 3 
+                if indice_api > 27: indice_api = 27 
+                icon_url = pegar_url_elo(indice_api, temporada_atual)
             
             lista_para_imagem.append({
                 'nome': nome_completo,

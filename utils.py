@@ -11,9 +11,12 @@ import time
 # Guarda os IDs das mensagens. Formato: {msg_id: {"tempo": timestamp, "interacoes": {}, "contexto": "texto do embed"}}
 avisos_ativos = {}
 
-def calcular_elo_explanator(pontos):
-    """Converte os pontos do Explanator em um nome de Elo do Valorant."""
-    # Lista com todos os 25 ranks do Valorant em ordem (Ferro 1 até Radiante)
+def calcular_elo_explanator(pontos, alertas_md3):
+    """Converte os pontos do Explanator em um nome de Elo do Valorant. Confere o MD3"""
+    
+    if alertas_md3 < 3:
+        return f"MD3 ({alertas_md3}/3)"
+    
     elos = [
         "Ferro 1", "Ferro 2", "Ferro 3",
         "Bronze 1", "Bronze 2", "Bronze 3",
