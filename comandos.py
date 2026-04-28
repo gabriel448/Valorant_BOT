@@ -3,11 +3,12 @@ from discord import app_commands
 import aiohttp
 import os
 from io import StringIO
+import asyncpg
 
 from utils import gerar_embed
 from api import obter_puuid_henrik
-from database import cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
-from utils import calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
+from database import DATABASE_URL, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
+from utils import enviar_aviso_md3,calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
 
@@ -151,6 +152,70 @@ class PaginacaoHelp(discord.ui.View):
 HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
 MEU_ID_DISCORD = int(os.getenv('MEU_ID_DISCORD'))
 def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, cache_partidas):
+
+    # ----- NOTIFICACAO DE TESTE -----
+    @tree.command(name="notificacao-teste", description="[DEV] Gera um alerta de teste (ninguém mais vê).")
+    @app_commands.choices(tipo_teste=[
+        app_commands.Choice(name="Punição", value="punicao"),
+        app_commands.Choice(name="Elogio", value="elogio"),
+        app_commands.Choice(name="Aviso de MD3", value="fim_md3")
+    ])
+    async def notificacao_teste_cmd(
+        interaction: discord.Interaction, 
+        tipo_teste: app_commands.Choice[str], 
+        jogador: str, 
+        agente: str, 
+        mapa: str,
+        punicoes_md3: int = 0,
+        elogios_md3: int = 0,
+        pontos_finais: int = 0
+    ):
+        
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Acesso Negado.", ephemeral=True)
+            return
+
+        # --- TESTE DE FIM DE MD3 ---
+        if tipo_teste.value == "fim_md3":
+            await interaction.response.defer(ephemeral=True)
+            
+            # 1. Prepara os dados falsos de MD3
+            dados_md3_teste = {
+                "pontos_finais": pontos_finais,
+                "punicoes": punicoes_md3,
+                "elogios": elogios_md3
+            }
+            
+            # 2. Busca onde o dev (você) está cadastrado para enviar o teste
+            
+            conn = await asyncpg.connect(DATABASE_URL)
+            config = await conn.fetchrow(
+                "SELECT alert_role_id FROM configuracoes_servidor WHERE guild_id = $1", 
+                interaction.guild.id
+            )
+            await conn.close()
+            
+            # Define o destino apenas como o canal atual
+            id_cargo = config['alert_role_id'] if config else None
+            destinos_unicos = [{'canal': interaction.channel.id, 'cargo': id_cargo}]
+            
+            if not destinos_unicos:
+                await interaction.followup.send("⚠️ Você não está cadastrado como alvo em nenhum servidor para receber o teste.")
+                return
+
+            # 3. Dispara a função real de envio
+            await enviar_aviso_md3(client, destinos_unicos, interaction.user.id, jogador, dados_md3_teste)
+            
+            await interaction.followup.send(f"✅ Teste de Fim de MD3 enviado em <#{interaction.channel.id}>!", ephemeral=True)
+
+        # --- PUNIÇÃO E ELOGIO ---
+        else:
+            view = ViewTestes(tipo_teste.value, jogador, agente, mapa, client)
+            await interaction.response.send_message(
+                f"🛠️ **Painel de Teste:** Configure os motivos para **{jogador}**.", 
+                view=view, 
+                ephemeral=True
+            )
 
     # ----- CADASTRAR ALVO -----
     @tree.command(name="cadastrar-alvo", description="Cadastra um amigo para o monitoramento de baitamento no Valorant.")
@@ -557,27 +622,6 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             ephemeral=True
         )
 
-    @tree.command(name="notificacao-teste", description="[DEV] Gera um alerta de teste (ninguém mais vê).")
-    @app_commands.choices(tipo_aviso=[
-        app_commands.Choice(name="Punição", value="punicao"),
-        app_commands.Choice(name="Elogio", value="elogio")
-    ])
-    async def notificacao_teste_cmd(interaction: discord.Interaction, tipo_aviso: app_commands.Choice[str], jogador: str, agente: str, mapa: str):
-        
-        if interaction.user.id != MEU_ID_DISCORD:
-            await interaction.response.send_message("❌ Acesso Negado. Este comando é apenas para manutenção.", ephemeral=True)
-            return
-
-        view = ViewTestes(tipo_aviso.value, jogador, agente, mapa, client)
-        
-        # Envia a interface de botões apenas para você
-        await interaction.response.send_message(
-            f"🛠️ **Painel de Teste:** Configure os motivos do aviso para **{jogador}** de **{agente}** na **{mapa}**.", 
-            view=view, 
-            ephemeral=True
-        )
-
-# ----- STATUS -----
 # ----- STATUS EXPLANATOR -----
     @tree.command(name="status-explanator", description="Mostra a ficha e o Rank completo de um jogador.")
     async def status_explanator_cmd(interaction: discord.Interaction, usuario: discord.Member):

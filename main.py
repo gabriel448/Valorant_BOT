@@ -11,7 +11,7 @@ from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
-from utils import atualizar_status_discord, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
+from utils import enviar_aviso_md3, atualizar_status_discord, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
 from msg import gerar_resposta_rebate
 
 
@@ -166,12 +166,17 @@ async def monitoramento_continuo():
                     
                     destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
-                    #ajusta a pontuacao do rank do explanator no banco de dados
+                    
                     qtd_punicoes = len(punicao['motivos_punicao']) if punicao['punitivo'] else 0
                     qtd_elogios = len(elogio['motivos_elogio']) if elogio['merece_elogio'] else 0
 
-                    await alterar_pontos_explanator(puuid, qtd_punicoes, qtd_elogios)
+                    #ajusta a pontuacao do rank do explanator no banco de dados
+                    resultado_md3 = await alterar_pontos_explanator(puuid, qtd_punicoes, qtd_elogios)
                     print(f'Pontos do explanator atualizados para {nome_jogador}')
+                    
+                    #verifica se o jogador acabou de terminar a md3
+                    if resultado_md3 is not None:
+                        client.loop.create_task(enviar_aviso_md3(client, destinos, discord_id, nome_jogador, resultado_md3))
                     
                     if not destinos:
                             print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  

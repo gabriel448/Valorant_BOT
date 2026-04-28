@@ -535,5 +535,57 @@ def pegar_url_elo(indice_api: int, temporada_atual):
         print('Erro ao pegar url do icone de elo, verifique os parametros passados para pegar_url_elo()')
     return icon_url
 
+async def enviar_aviso_md3(client, destinos, discord_id, nome_jogador, dados_md3):
+    """
+    Monta e envia o Embed de conclusão da MD3 para todos os servidores do jogador.
+    """
+
+    # 1. Tenta pegar a foto de perfil do Discord do jogador
+    try:
+        usuario = await client.fetch_user(discord_id)
+        avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
+    except Exception:
+        avatar_url = None
+
+    # 2. Prepara os dados de Elo
+    rank_nome = calcular_elo_explanator(dados_md3["pontos_finais"], 3) # Passa 3 porque a MD3 acabou
+    indice_api = (dados_md3["pontos_finais"] // 3) + 3 
+    if indice_api > 27: indice_api = 27 
+    
+    temporada_atual = await pegar_temporada_atual()
+    icon_url = pegar_url_elo(indice_api, temporada_atual)
+
+    # 3. Monta o Embed estilo "Status"
+    embed = discord.Embed(
+        title=f"🎯 MD3 CONCLUÍDA: {nome_jogador}",
+        description=f"{nome_jogador} conclui a MD3. O Explanator determinou a patente mensal deste jogador.",
+        color=0x00FF7F # Verde Primavera 
+    )
+    
+    if avatar_url:
+        embed.set_thumbnail(url=avatar_url)
+    if icon_url:
+        embed.set_author(name=rank_nome,icon_url=icon_url)
+
+    embed.add_field(name="🚨 Punições na MD3", value=f"{dados_md3['punicoes']}", inline=True)
+    embed.add_field(name="🌟 Elogios na MD3", value=f"{dados_md3['elogios']}", inline=True)
+    embed.add_field(name="🏆 Rank Adquirido", value=f"**{rank_nome}**", inline=False)
+    embed.set_footer(text="Agora os pontos agora sobem e descem (+1 ou -1) normalmente para esse jogador.")
+
+    # 4. Envia para todos os canais que o jogador está cadastrado
+    for destino in destinos:
+        id_canal = destino['canal']
+        id_cargo = destino['cargo']
+        if not id_canal: continue
+        
+        try:
+            canal = await client.fetch_channel(int(id_canal))
+            texto_ping = f"<@{discord_id}>"
+            if id_cargo:
+                texto_ping += f" <@&{id_cargo}>"
+                
+            await canal.send(content=texto_ping, embed=embed)
+        except Exception as e:
+            print(f"Erro ao enviar aviso de MD3 no canal {id_canal}: {e}")
 
 

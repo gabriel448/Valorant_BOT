@@ -30,7 +30,8 @@ async def iniciar_banco():
         alertas_md3 INTEGER DEFAULT 0,
         mes_referencia VARCHAR(7) DEFAULT '1970-01',
         total_punicoes INTEGER DEFAULT 0,
-        total_elogios INTEGER DEFAULT 0
+        total_elogios INTEGER DEFAULT 0,
+        punicoes_md3 INTEGER DEFAULT 0
     );
     """
 
@@ -60,6 +61,12 @@ async def iniciar_banco():
     await conn.execute(query_associacao)
     print("Tabela de associacao criada/checada com sucesso")
     print("Estrutura Relacional (3 Tabelas) criada com sucesso!")
+
+    try:
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN punicoes_md3 INTEGER DEFAULT 0;")
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN elogios_md3 INTEGER DEFAULT 0;")
+    except asyncpg.exceptions.DuplicateColumnError:
+        pass
 
     try:
         await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN win_streak INTEGER DEFAULT 0;")
@@ -268,7 +275,7 @@ async def pegar_dono_do_alvo(nome: str, tag: str):
 
 async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: int):
     """
-    Motor da MD3 e da Temporada Regular do Explanator.
+    Motor da MD3. Retorna um dicionário se a MD3 for concluída nesta exata chamada.
     """
     conn = await asyncpg.connect(DATABASE_URL)
     
@@ -287,6 +294,8 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     pontos = registro['pontos_explanator']
     alertas_md3 = registro['alertas_md3']
     mes_banco = registro['mes_referencia']
+    punicoes_md3 = registro['punicoes_md3']
+    elogios_md3 = registro['elogios_md3']
     
     # 3. LAZY RESET (Começo do mês)
     if mes_banco != mes_atual:
@@ -297,15 +306,28 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     if alertas_md3 < 3:
         # A cada aviso na MD3, os motivos valem MUITO mais pontos. Ex: peso 6.
         # Se ele cometeu 3 crimes num jogo só, ele ganha 18 pontos de uma vez!
-        pontos += (qtd_punicoes * 6)
-        pontos -= (qtd_elogios * 6)
+        pontos += (qtd_punicoes * 9)
+        pontos -= (qtd_elogios * 3)
         
+        punicoes_md3 += qtd_punicoes
+        elogios_md3 += qtd_elogios
+
         alertas_md3 += 1
         
         # FINALIZOU A MD3! Aplicar os limites (Clamp)
         if alertas_md3 == 3:
             if pontos > 53: pontos = 53 # Teto: Diamante 3
             if pontos < 6: pontos = 6   # Piso: Ferro 3
+
+            # Prepara o pacote de dados para enviar ao Main.py
+            resultado_md3 = {
+                "pontos_finais": pontos,
+                "punicoes": punicoes_md3,
+                "elogios": elogios_md3
+            }
+            
+            punicoes_md3 = 0
+            elogios_md3 = 0
     
     # 5. TEMPORADA REGULAR (Já fez a MD3)
     else:
@@ -320,15 +342,15 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     # 6. Salva tudo no banco
     query_update = """
         UPDATE jogadores_monitorados 
-        SET pontos_explanator = $1, 
-            alertas_md3 = $2, 
-            mes_referencia = $3,
-            total_punicoes = total_punicoes + $4,
-            total_elogios = total_elogios + $5
-        WHERE riot_puuid = $6;
+        SET pontos_explanator = $1, alertas_md3 = $2, mes_referencia = $3,
+            total_punicoes = total_punicoes + $4, total_elogios = total_elogios + $5,
+            punicoes_md3 = $6, elogios_md3 = $7
+        WHERE riot_puuid = $8;
     """
-    await conn.execute(query_update, pontos, alertas_md3, mes_atual, qtd_punicoes, qtd_elogios, puuid)
+    await conn.execute(query_update, pontos, alertas_md3, mes_atual, qtd_punicoes, qtd_elogios, punicoes_md3, elogios_md3, puuid)
     await conn.close()
+
+    return resultado_md3
 
 async def pegar_top_bagres(guild_id: int):
     """
@@ -351,7 +373,7 @@ async def pegar_top_bagres(guild_id: int):
         )
         SELECT * FROM ranking_resetado 
         ORDER BY pontos_explanator DESC 
-        LIMIT 10;
+        LIMIT 5;
     """
 
     registros = await conn.fetch(query, guild_id, mes_atual)
