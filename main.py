@@ -265,9 +265,6 @@ async def on_message(message):
                 # TERCEIRA EM DIANTE: Ignora totalmente (Shadowban do aviso)
                 pass
 
-    # Garante que os comandos de barra (/) continuem funcionando!
-    await client.process_commands(message)
-
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':
     token = os.getenv('DISCORD_TOKEN')
