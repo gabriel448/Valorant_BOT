@@ -29,7 +29,7 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
     
     # Tenta carregar fontes (se não achar, usa padrões claros)
     try:
-        fonte_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 48) # Maior e mais negrito
+        fonte_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 35) # Maior e mais negrito
         fonte_texto = ImageFont.truetype("LiberationSans-Regular.ttf", 35)
     except:
         fonte_titulo = ImageFont.load_default()

@@ -289,7 +289,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         embed = discord.Embed(
             title="🚨 ATUALIZAÇÃO DO EXPLANATOR",
             description=(
-                "O mês virou. O passado foi apagado. O Explanator **resetou os elos de todo mundo.**\n"
+                "O passado foi apagado. O Explanator **resetou os elos de todo mundo.**\n"
                 "A partir de agora, vocês são apenas indigentes sem patente na tabela de líderes. O jogo virou, e as regras mudaram."
             ),
             color=0xFF4500 # Laranja Avermelhado (Cor de Alerta/Fogo)
