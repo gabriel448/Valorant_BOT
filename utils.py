@@ -273,6 +273,7 @@ async def verificar_regras_elogio(dados_elo, dados_jogador, win_streak):
     motivos_elogio_IA = []
     rank_up = False
 
+    agente = dados_jogador['estatisticas_alvo']['character']
     elo_banco_int = dados_jogador['elo_banco_int']
 
     if dados_elo['elo_atual_int'] > elo_banco_int and elo_banco_int >= 3:
@@ -292,9 +293,16 @@ async def verificar_regras_elogio(dados_elo, dados_jogador, win_streak):
         motivos_elogio_IA.append(f"JOGADOR ESTÁ EM UMA SEQUÊNCIA DE {win_streak} VITÓRIAS SEGUIDAS, O CARA TA IMPARÁVEL")
 
     if dados_jogador['assists'] >= 13 and dados_jogador['kd_ratio'] >= 1.0:
-        merece_elogio = True
-        motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
-        motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
+        if agente != 'Miks':
+            merece_elogio = True
+            motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
+            motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
+        else:
+            if dados_jogador['assists'] >= 25:
+                merece_elogio = True
+                motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
+                motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
+        
 
     elogio = {
         'merece_elogio': merece_elogio,

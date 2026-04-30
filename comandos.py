@@ -746,7 +746,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             "**🏆 Sequência de vitórias**\n"
             "> Engatar uma sequência de `4` ou mais vitórias seguidas.\n\n"
             "**🤝 O Garçom (Suporte)**\n"
-            "> Fazer `13` ou mais assistências mantendo o K/D neutro ou positivo (`K/D >= 1.0`)."
+            "> Fazer `13` ou mais assistências mantendo o K/D neutro ou positivo (`pra Miks sao 25 assists ou mais`)."
         )
         embed_elogios.add_field(name="🌟 MÉRITOS (Elogios)", value=regras_elogio, inline=False)
         embed_elogios.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
