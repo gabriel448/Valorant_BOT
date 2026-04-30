@@ -78,7 +78,11 @@ async def monitoramento_continuo():
                 
                 partidas_nao_vistas = []
                 for partida in partidas_recentes:
-                    mid = partida.get('metadata', {}).get('matchid')
+                    try:
+                        mid = partida.get('metadata', {}).get('matchid')
+                    except Exception as e:
+                        print(f'Erro ao carregar matchID de uma das partidas recentes do {nome_jogador}')
+                        continue
                     if not mid: continue
                     
                     # Chegou na última partida que o bot conhece
@@ -90,7 +94,11 @@ async def monitoramento_continuo():
                     print(f"Nenhuma nova partida para {nome_jogador}")
                     # Guarda as 5 últimas no cache pra caso a API dê lag no restart
                     for p in partidas_recentes:
-                        mid = p.get('metadata', {}).get('matchid')
+                        try:
+                            mid = p.get('metadata', {}).get('matchid')
+                        except Exception as e:
+                            print(f'Erro ao carregar matchID de uma das partidas recentes do (adicionando ao cache) {nome_jogador}')
+                            continue
                         if mid and mid not in cache_partidas_vistas:
                             cache_partidas_vistas.append(mid)
                     await asyncio.sleep(1.5)
