@@ -149,6 +149,29 @@ class PaginacaoHelp(discord.ui.View):
             view=self
         )
 
+class ViewRegras(discord.ui.View):
+    def __init__(self, embed_punicoes, embed_elogios):
+        super().__init__(timeout=180) # Timeout de 3 minutos
+        self.embed_punicoes = embed_punicoes
+        self.embed_elogios = embed_elogios
+
+    # Botão de Punições (Começa desativado pois é a primeira tela)
+    @discord.ui.button(label="🚨 Punições", style=discord.ButtonStyle.danger, disabled=True)
+    async def btn_punicoes(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Desativa a si mesmo e ativa o outro botão
+        self.children[0].disabled = True
+        self.children[1].disabled = False
+        await interaction.response.edit_message(embed=self.embed_punicoes, view=self)
+
+    # Botão de Elogios
+    @discord.ui.button(label="🌟 Elogios", style=discord.ButtonStyle.success, disabled=False)
+    async def btn_elogios(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Ativa o botão de punições e desativa a si mesmo
+        self.children[0].disabled = False
+        self.children[1].disabled = True
+        await interaction.response.edit_message(embed=self.embed_elogios, view=self)
+
+
 HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
 MEU_ID_DISCORD = int(os.getenv('MEU_ID_DISCORD'))
 def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, cache_partidas):
@@ -548,7 +571,9 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Tóxico (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
             {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
             {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
-            {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor"}
+            {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor."},
+            {"nome": "📉 `/status-explanator`", "desc": "Mostra o seu status do explanator (apenas status do BOT explanator)."},
+            {"nome": "⚖️ `/condicoes`", "desc": "Mostra as condições de elogio e punição."}
         ]
 
         # 3. FATIADOR DE PÁGINAS (4 comandos por página)
@@ -678,3 +703,55 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         embed.set_footer(text=f"ID: {usuario.id} | Explanator")
 
         await interaction.followup.send(embed=embed)
+    
+    @tree.command(name="condicoes", description="Mostra o livro de regras oficial do Explanator.")
+    async def regras_cmd(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # Montando o Embed principal
+        embed_punicoes = discord.Embed(
+            title="📖 CÓDIGO PENAL: Punições",
+            description="Estas são as leis que regem o Explanator. O bot vai te punir com base nesses critérios exatos.",
+            color=0xFF0000
+        )
+
+        # Seção de Punições (Baseado na função verificar_regras_punicao)
+        regras_punicao = (
+            "\n**📉 Queda de Elo**\n"
+            "> Cair de elo.\n\n"
+            "**🧱 O Pacifista**\n"
+            "> Jogar 10 ou mais rounds e fazer ZERO abates.\n\n"
+            "**🕸️ K/D**\n"
+            "> Terminar a partida com um K/D menor ou igual a `0.5`.\n\n"
+            "**📉 Sequência de derrotas**\n"
+            "> Engatar uma sequência de `4` ou mais derrotas seguidas.\n\n"
+            "**🦵 Dieta do peito**\n"
+            "> Acertar `84%` ou mais dos tiros no peito (Regra anulada se o jogador for mono Sniper)."
+        )
+        embed_punicoes.add_field(name="🚨 INFRAÇÕES (Punições)", value=regras_punicao, inline=False)
+        embed_punicoes.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        embed_elogios = discord.Embed(
+            title="📖 CÓDIGO PENAL: Méritos",
+            description="Até o Explanator sabe reconhecer um milagre. O bot te elogia com base nestes critérios:",
+            color=0x00FF00 # Verde Sucesso
+        )
+
+        # Seção de Elogios (Baseado na função verificar_regras_elogio)
+        regras_elogio = (
+            "\n**📈 Subir de Elo**\n"
+            "> Subir de elo na ranqueada.\n\n"
+            "**🔥 K/D**\n"
+            "> Terminar com K/D igual ou superior a `2.0` com pelo menos `20` abates.\n\n"
+            "**🏆 Sequência de vitórias**\n"
+            "> Engatar uma sequência de `4` ou mais vitórias seguidas.\n\n"
+            "**🤝 O Garçom (Suporte)**\n"
+            "> Fazer `13` ou mais assistências mantendo o K/D neutro ou positivo (`K/D >= 1.0`)."
+        )
+        embed_elogios.add_field(name="🌟 MÉRITOS (Elogios)", value=regras_elogio, inline=False)
+        embed_elogios.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        #enviando msg com os botoes
+        view = ViewRegras(embed_punicoes, embed_elogios)
+        
+        await interaction.followup.send(embed=embed_punicoes, view=view)
