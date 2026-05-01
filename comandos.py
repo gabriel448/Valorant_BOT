@@ -310,45 +310,25 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # montando o embed
         embed = discord.Embed(
-            title="🚨 ATUALIZAÇÃO DO EXPLANATOR",
-            description=(
-                "O passado foi apagado. O Explanator **resetou os elos de todo mundo.**\n"
-                "A partir de agora, vocês são apenas indigentes sem patente na tabela de líderes. O jogo virou, e as regras mudaram."
-            ),
-            color=0xFF4500 # Laranja Avermelhado (Cor de Alerta/Fogo)
+            title="💌 CORREIO ELEGANTE DO EXPLANATOR",
+            description="O Explanator agora permite fofoca, covardia e declarações de amor não correspondidas. Foi adicionado um novo comando para você se comunicar no servidor sem revelar sua identidade.",
+            color=0x8A2BE2 # Roxo (Cor de mistério)
         )
 
         embed.add_field(
-            name="⚖️ O MD3", 
-            value=(
-                "O seu Rank do Explanator agora é mensal. Seus **próximos 3 avisos** (seja punição ou elogio) vão definir onde você cai na tabela.\n"
-                "⚠️ **Aviso:** Durante a MD3, o peso dos seus crimes é MULTIPLICADO. 3 partidas desastrosas agora podem te jogar direto no *Diamante 3* dos bagres."
-            ), 
+            name="❓ Como funciona:", 
+            value="Digite o comando `/mensagem-anonima`, selecione a vítima (destinatário) e escreva o seu texto. O bot vai entregar a mensagem no chat público de forma anônima.", 
             inline=False
         )
 
         embed.add_field(
-            name="🤝 Suporte (Novos Elogios)", 
-            value=(
-                "Cansado de ser chamado de cego só porque você joga pro time? A IA foi atualizada para reconhecer novos feitos:\n"
-                "• **O Garçom:** Fez 13+ assistências e não afundou o K/D: O bot vai te elogiar por dar suporte ao time.\n"
-                "• **O Imparável:** Engatou uma sequência de 4 vitórias seguidas (Win Streak): A IA vai elogiar sua consistência."
-            ), 
-            inline=False
-        )
-
-        embed.add_field(
-            name="📊 Novo Comando: `/status-explanator`", 
-            value=(
-                "Quer ver sua ficha criminal completa? Agora você pode consultar o status de qualquer jogador.\n"
-                "• **Histórico Total:** Veja quantas punições e elogios você recebeu contando a partir de hoje.\n"
-                "• **Rank & P/E:** Acompanhe seu elo atual e sua taxa de Punição/Elogio (P/E)(quanto maior, pior!!)."
-            ), 
+            name="⚠️ O Aviso de Segurança", 
+            value="O servidor nunca saberá quem mandou a mensagem... Mas lembre-se: Deus ta vendo. Usem com sabedoria.", 
             inline=False
         )
 
         embed.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
-        embed.set_footer(text="A MD3 já está valendo. Boa sorte .")
+        embed.set_footer(text="O comando ja esta ativo. Pode testar.")
 
         # Dispara pra todos os servidores cadastrados
         canais = await pegar_todos_canais_configurados()
@@ -573,7 +553,8 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
             {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor."},
             {"nome": "📉 `/status-explanator`", "desc": "Mostra o seu status do explanator (apenas status do BOT explanator)."},
-            {"nome": "⚖️ `/condicoes`", "desc": "Mostra as condições de elogio e punição."}
+            {"nome": "⚖️ `/condicoes`", "desc": "Mostra as condições de elogio e punição."},
+            {"nome": "💌 `/mensagem-anonima`", "desc": "Manda uma mensagem anônima pro bot mandar no chat configurado."}
         ]
 
         # 3. FATIADOR DE PÁGINAS (4 comandos por página)
@@ -755,3 +736,18 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         view = ViewRegras(embed_punicoes, embed_elogios)
         
         await interaction.followup.send(embed=embed_punicoes, view=view)
+
+    @tree.command(name="mensagem-anonima", description="Manda uma mensagem anonima para o usuario.")
+    @app_commands.describe(
+        para="A pessoa que vai receber a mensagem",
+        mensagem="O texto que você quer enviar anonimamente"
+    )
+    async def regras_cmd(interaction: discord.Interaction, para: discord.Member, mensagem: str):
+        await interaction.response.send_message(
+            f"🤫 Sua mensagem anônima para {para.display_name} foi enviada em segredo!(so vc consegue ver isso)", 
+            ephemeral=True
+        )
+
+        texto_anonimo = f"{para.mention} Alguém te enviou uma mensagem anônima:\n\n\"{mensagem}\""
+        await interaction.channel.send(content=texto_anonimo)
+
