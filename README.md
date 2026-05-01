@@ -17,7 +17,7 @@ Este projeto foi construído para aplicar conceitos práticos de Engenharia de S
 
 ## 🧠 Arquitetura e Habilidades Demonstradas
 
-Ao longo do desenvolvimento deste projeto, foram aplicados conceitos fundamentais de Sistemas de Informação:
+Ao longo do desenvolvimento deste projeto, foram aplicados conceitos fundamentais de Sistemas de Informação e Engenharia de Software:
 
 ### 1. Programação Assíncrona (Async/Await)
 O bot opera de forma totalmente não-bloqueante. A utilização do loop de eventos nativo do Python (`asyncio`) permite que o sistema lide com respostas no chat do Discord simultaneamente enquanto realiza consultas pesadas de rede e transações no banco de dados.
@@ -39,6 +39,9 @@ O bot atua como um pipeline de dados: sintetiza as métricas frias da partida e 
 
 ### 6. Geração Dinâmica de Assets Visuais
 Uso da biblioteca Pillow para criar tabelas de liderança (Leaderboards) "on-the-fly". O sistema baixa banners de jogadores, aplica máscaras de transparência (gradientes alfa) e sobrepõe textos e ícones oficiais de Elo renderizados em tempo real.
+
+### 7. Estruturação de Dados e Tipagem Segura (Dataclasses)
+Visando escalabilidade, previsibilidade e manutenibilidade, o fluxo de dados interno do bot é regido por `dataclasses`. A substituição de estruturas dinâmicas (como dicionários) por objetos estritamente tipados blinda o sistema contra erros de execução, garante autocompletar em ferramentas de análise estática (IDEs) e estabelece uma fronteira arquitetural sólida entre os dados crus de APIs externas e a lógica de negócios da aplicação.
 
 ---
 
