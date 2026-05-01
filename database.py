@@ -410,3 +410,31 @@ async def pegar_status_jogador(discord_user_id: int):
         "pontos_explanator": registro["pontos_explanator"],
         "alertas_md3": registro["alertas_md3"]
     }
+
+async def limpar_dados_servidor(guild_id: int):
+    """
+    Remove todos os rastros de um servidor e limpa jogadores órfãos.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    
+    try:
+        # Deleta o canal e cargo configurados para aquele servidor
+        await conn.execute("DELETE FROM configuracoes_servidor WHERE guild_id = $1", guild_id)
+        
+        # Rompe o vínculo de todos os jogadores com aquele servidor
+        await conn.execute("DELETE FROM jogadores_servidores WHERE guild_id = $1", guild_id)
+        
+        
+        # Delete todo jogador cujo ID não exista mais na tabela de vínculos
+        query_orfaos = """
+            DELETE FROM jogadores_monitorados 
+            WHERE discord_user_id NOT IN (SELECT discord_user_id FROM jogadores_servidores);
+        """
+        status_orfaos = await conn.execute(query_orfaos)
+        
+        print(f"Limpeza do servidor {guild_id} concluída. {status_orfaos} (jogadores órfãos removidos).")
+        
+    except Exception as e:
+        print(f"Erro ao limpar dados do servidor {guild_id}: {e}")
+    finally:
+        await conn.close()

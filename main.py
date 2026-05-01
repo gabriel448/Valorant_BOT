@@ -7,7 +7,7 @@ from discord import app_commands
 import time
 import random
 
-from database import alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador, atualizar_match_id
+from database import limpar_dados_servidor, alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador, atualizar_match_id
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
@@ -272,6 +272,16 @@ async def on_message(message):
             else:
                 # TERCEIRA EM DIANTE: Ignora totalmente (Shadowban do aviso)
                 pass
+
+@client.event
+async def on_guild_remove(guild):
+    """
+    Evento acionado automaticamente quando o bot é expulso, banido 
+    ou quando o servidor é deletado.
+    """
+    print(f"⚠️ O bot foi removido do servidor: {guild.name} (ID: {guild.id})")
+    print("Iniciando protocolo de limpeza no banco de dados...")
+    await limpar_dados_servidor(guild.id)
 
 #roda o bota com o token que esta no .env
 if __name__ == '__main__':
