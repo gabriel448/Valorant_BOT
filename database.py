@@ -438,3 +438,17 @@ async def limpar_dados_servidor(guild_id: int):
         print(f"Erro ao limpar dados do servidor {guild_id}: {e}")
     finally:
         await conn.close()
+
+async def pegar_cargo_servidor(guild_id: int):
+    """
+    Busca o ID do cargo configurado para alertas em um servidor específico.
+    Retorna o ID numérico ou None se não houver cargo configurado.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "SELECT alert_role_id FROM configuracoes_servidor WHERE guild_id = $1"
+    registro = await conn.fetchrow(query, guild_id)
+    await conn.close()
+    
+    if registro and registro['alert_role_id']:
+        return registro['alert_role_id']
+    return None

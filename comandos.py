@@ -7,7 +7,7 @@ import asyncpg
 
 from utils import gerar_embed
 from api import obter_puuid_henrik
-from database import DATABASE_URL, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
+from database import DATABASE_URL,pegar_cargo_servidor, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
 from utils import enviar_aviso_md3,calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
 from imagem_builder import criar_imagem_leaderboard
 from dotenv import load_dotenv
@@ -742,12 +742,24 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         para="A pessoa que vai receber a mensagem",
         mensagem="O texto que você quer enviar anonimamente"
     )
-    async def regras_cmd(interaction: discord.Interaction, para: discord.Member, mensagem: str):
-        await interaction.response.send_message(
+    async def mensagem_anonima(interaction: discord.Interaction, mensagem: str, para: discord.Member = None ):
+        
+        if para:
+            await interaction.response.send_message(
             f"🤫 Sua mensagem anônima para {para.display_name} foi enviada em segredo!(so vc consegue ver isso)", 
             ephemeral=True
-        )
+            )
+            texto_anonimo = f"{para.mention} Alguém te enviou uma mensagem anônima:\n\n\"{mensagem}\""
+            await interaction.channel.send(content=texto_anonimo)
+        else:
+            await interaction.response.send_message(
+            f"🤫 Sua mensagem anônima foi enviada em segredo!(so vc consegue ver isso)", 
+            ephemeral=True
+            )
+            id_cargo = await pegar_cargo_servidor(interaction.guild.id)
 
-        texto_anonimo = f"{para.mention} Alguém te enviou uma mensagem anônima:\n\n\"{mensagem}\""
-        await interaction.channel.send(content=texto_anonimo)
+            texto_ping = f"<@&{id_cargo}>" if id_cargo else ''
+
+            texto_anonimo = f"{texto_ping} Alguém enviou uma mensagem anônima:\n\n\"{mensagem}\""
+            await interaction.channel.send(content=texto_anonimo)
 
