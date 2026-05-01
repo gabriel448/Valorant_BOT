@@ -7,6 +7,7 @@ from io import StringIO
 from datetime import datetime
 import aiohttp
 import time
+from modelos import DadosJogador, ResultadoJulgamento, DadosEmbed, DadosEnvio, DadosElo, DadosPartidasRecentes
 
 # Guarda os IDs das mensagens. Formato: {msg_id: {"tempo": timestamp, "interacoes": {}, "contexto": "texto do embed"}}
 avisos_ativos = {}
@@ -53,18 +54,18 @@ def ajuste_fuso_horario(hora:str, diferenca:int):
             return None
     return None
 
-async def verificar_ultimas_partidas(dados):
+async def verificar_ultimas_partidas(dados: DadosPartidasRecentes):
     """
     Verifica as ultimas 5 partidas do jogador pra verificar e atualizar seu losstreak
     """
 
-    partidas_recentes = dados['partidas_recentes']
-    ultimo_match_salvo = dados['ultimo_match_salvo']
-    puuid = dados['puuid']
-    nome_jogador = dados['nome_jogador']
-    streak_atual = dados['streak_atual']
-    cache_partidas_vistas = dados['cache_partidas_vistas']
-    win_streak_atual = dados['win_streak_atual']
+    partidas_recentes = dados.partidas_recentes
+    ultimo_match_salvo = dados.ultimo_match_salvo
+    puuid = dados.puuid
+    nome_jogador = dados.nome_jogador
+    streak_atual = dados.loss_streak_atual
+    cache_partidas_vistas = dados.cache_partida_vistas
+    win_streak_atual = dados.win_streak_atual
 
     novas_partidas = []
     for partida in partidas_recentes:
@@ -117,7 +118,7 @@ async def verificar_ultimas_partidas(dados):
 
 async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
     """
-    RECEBE os parametros e solta um dicionario com os dados do desempenho do jogador na partida
+    RECEBE os parametros e Retorna um objeto de DadosJogador com os dados do desempenho do jogador na partida
     """
     nome_jogador = jogador['riot_game_name']
 
@@ -174,25 +175,23 @@ async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
 
         #elo no banco de dados
         elo_banco_int = jogador['current_tier_int']
-        
-        dados_jogador = {
-            'estatisticas_alvo': estatisticas_alvo,
-            'elo_banco_int': elo_banco_int,
-            'dados_mmr': dados_mmr,
-            'e_mono_sniper': e_mono_sniper,
-            'kd_ratio': kd_ratio,
-            'porcentagem_peito': porcentagem_peito,
-            'kills': kills,
-            'deaths': deaths,
-            'assists': assists,
-            'headshots': headshots,
-            'bodyshots': bodyshots,
-            'legshots': legshots,
-            'rounds_jogados': rounds_jogados,
-            'puuid': puuid
-        }
 
-        return dados_jogador
+        return DadosJogador(
+            estatisticas_alvo=estatisticas_alvo,
+            elo_banco_int=elo_banco_int,
+            dados_mmr=dados_mmr,
+            e_mono_sniper=e_mono_sniper,
+            kd_ratio=kd_ratio,
+            porcentagem_peito=porcentagem_peito,
+            kills=kills,
+            deaths=deaths,
+            assists=assists,
+            headshots=headshots,
+            bodyshots=bodyshots,
+            legshots=legshots,
+            rounds_jogados=rounds_jogados,
+            puuid=puuid
+        )
     print(f'Jogador {nome_jogador} nao encontrado na partida')
     return None
 
@@ -207,115 +206,131 @@ async def pegar_dados_do_elo(dados_mmr):
         elo_imagem = dados_mmr.get('data', {}).get('images', {}).get('large')
         if not elo_imagem:
             print('Erro ao carregar imagem do elo atual')
-        dados_elo = {
-            'elo_atual_int': elo_atual_int,
-            'elo_atual_nome': elo_atual_nome,
-            'elo_atual_imagem': elo_imagem
-        }
-        return dados_elo
+        
+        return DadosElo(
+            elo_atual_int = elo_atual_int,
+            elo_atual_nome = elo_atual_nome,
+            elo_atual_imagem = elo_imagem
+        )
     
     print('Erro ao pegar dados de mmr, Nulo ou sem "data"')
     return None
 
-async def verificar_regras_punicao(dados_elo,dados_jogador,streak_atual):
+async def verificar_regras_punicao(dados_elo: DadosElo ,dados_jogador: DadosJogador,streak_atual):
     """
     Pega os dados adquiridos anteriormente e verifica se se encaixa em alguma punicao
-    RETORNA um dicionario com: punitivo(bool), motivos_punicao(list[str]), motivos_punicao_IA(list[str])
+    RETORNA um objeto de ResultadoJulgamento
     """
     punitivo = False
     motivos_punicao = []
     motivos_punicao_IA = []
-    elo_banco_int = dados_jogador['elo_banco_int']
+    elo_banco_int = dados_jogador.elo_banco_int
+    puuid = dados_jogador.puuid
+    rounds_jogados = dados_jogador.rounds_jogados
+    kills = dados_jogador.kills
+    deaths = dados_jogador.deaths
+    assists = dados_jogador.assists
+    kd_ratio = dados_jogador.kd_ratio
+    porcentagem_peito = dados_jogador.porcentagem_peito
+    e_mono_sniper = dados_jogador.e_mono_sniper
+    elo_atual_int = dados_elo.elo_atual_int
+    elo_atual_nome = dados_elo.elo_atual_nome
 
-    if dados_elo['elo_atual_int'] < elo_banco_int and dados_elo['elo_atual_int'] >= 3:
+
+    if elo_atual_int < elo_banco_int and elo_atual_int >= 3:
         punitivo = True
-        motivos_punicao.append(f'Caiu pro {dados_elo["elo_atual_nome"]} kkk')
-        motivos_punicao_IA.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {dados_elo["elo_atual_nome"]}')
+        motivos_punicao.append(f'Caiu pro {elo_atual_nome} kkk')
+        motivos_punicao_IA.append(f'CAIU DE ELO, AGORA O JOGADOR ESTA {elo_atual_nome}')
     
-    if dados_elo['elo_atual_int'] != elo_banco_int:
-        await atualizar_tier_jogador(dados_jogador['puuid'], dados_elo['elo_atual_int'])
+    if elo_atual_int != elo_banco_int:
+        await atualizar_tier_jogador(puuid, elo_atual_int)
 
-    if dados_jogador['rounds_jogados'] >= 10 and dados_jogador['kills'] == 0:
+    if rounds_jogados >= 10 and kills == 0:
         punitivo = True
-        motivos_punicao.append(f"jogou {dados_jogador['rounds_jogados']} rounds e fez ZERO abates.")
-        motivos_punicao_IA.append(f"JOGADOR JOGOU {dados_jogador['rounds_jogados']} E FEZ ZERO ABATES")
+        motivos_punicao.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
+        motivos_punicao_IA.append(f"JOGADOR JOGOU {rounds_jogados} E FEZ ZERO ABATES")
         
-    elif dados_jogador['kd_ratio'] <= 0.5:
+    elif kd_ratio <= 0.5:
         punitivo = True
-        motivos_punicao.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}).")
-        motivos_punicao_IA.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}). JOGADOR OBTEVE UM PESSIMO KD NESSA PARTIDA")
+        motivos_punicao.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
+        motivos_punicao_IA.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}). JOGADOR OBTEVE UM PESSIMO KD NESSA PARTIDA")
     
     if streak_atual >=4:
         punitivo = True
         motivos_punicao.append(f'{streak_atual} derrotas seguidas e contando')
         motivos_punicao_IA.append(f'JOGADOR CHEGOU NA SEQUENCIA DE {streak_atual} DERRTOAS SEGUIDAS')
 
-    if dados_jogador['porcentagem_peito'] >= 84 and not dados_jogador['e_mono_sniper']:
+    if porcentagem_peito >= 84 and not e_mono_sniper:
         punitivo = True
-        motivos_punicao.append(f'**{dados_jogador["porcentagem_peito"]:.1f}%** dos tiros foi no peito')
-        motivos_punicao_IA.append(f'**{dados_jogador["porcentagem_peito"]:.1f}%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA')
+        motivos_punicao.append(f'**{porcentagem_peito:.1f}%** dos tiros foi no peito')
+        motivos_punicao_IA.append(f'**{porcentagem_peito:.1f}%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA')
     
-    punicao = {
-        'punitivo': punitivo,
-        'motivos_punicao': motivos_punicao,
-        'motivos_punicao_IA': motivos_punicao_IA
-    }
-    return punicao
+    return ResultadoJulgamento(
+        ativo=punitivo,
+        motivos=motivos_punicao,
+        motivos_ia= motivos_punicao_IA,
+    )
     
 
-async def verificar_regras_elogio(dados_elo, dados_jogador, win_streak):
+async def verificar_regras_elogio(dados_elo: DadosElo, dados_jogador: DadosJogador, win_streak):
     """
     Pega os dados adquiridos anteriormente e verifica se se encaixa em algum elogio
-    RETORNA um dicionario com: merece_elogio(bool), motivos_elogio(list[str]), motivos_elogio_IA(list[str]), rank_up(bool)
+    RETORNA um objeto de ResultadoJulgamento
     """
     merece_elogio = False
     motivos_elogio = []
     motivos_elogio_IA = []
     rank_up = False
 
-    agente = dados_jogador['estatisticas_alvo']['character']
-    elo_banco_int = dados_jogador['elo_banco_int']
+    agente = dados_jogador.estatisticas_alvo['character']
+    elo_banco_int = dados_jogador.elo_banco_int
+    kills = dados_jogador.kills
+    deaths = dados_jogador.deaths
+    assists = dados_jogador.assists
+    kd_ratio = dados_jogador.kd_ratio
+    elo_atual_int = dados_elo.elo_atual_int
+    elo_atual_nome = dados_elo.elo_atual_nome
 
-    if dados_elo['elo_atual_int'] > elo_banco_int and elo_banco_int >= 3:
+
+    if elo_atual_int > elo_banco_int and elo_banco_int >= 3:
         rank_up = True
         merece_elogio = True
-        motivos_elogio.append(f'subiu pro {dados_elo["elo_atual_nome"]}')
-        motivos_elogio_IA.append(f'JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO {dados_elo["elo_atual_nome"]}')
+        motivos_elogio.append(f'subiu pro {elo_atual_nome}')
+        motivos_elogio_IA.append(f'JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO {elo_atual_nome}')
 
-    if dados_jogador['kd_ratio'] >= 2.0 and dados_jogador['kills'] >= 20:
+    if kd_ratio >= 2.0 and kills >= 20:
         merece_elogio = True
-        motivos_elogio.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}).")
-        motivos_elogio_IA.append(f"K/D de {dados_jogador['kd_ratio']:.2f} ({dados_jogador['kills']}/{dados_jogador['deaths']}/{dados_jogador['assists']}). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
+        motivos_elogio.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")
+        motivos_elogio_IA.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
 
     if win_streak >= 4:
         merece_elogio = True
         motivos_elogio.append(f"{win_streak} vitórias seguidas!")
         motivos_elogio_IA.append(f"JOGADOR ESTÁ EM UMA SEQUÊNCIA DE {win_streak} VITÓRIAS SEGUIDAS, O CARA TA IMPARÁVEL")
 
-    if dados_jogador['assists'] >= 13 and dados_jogador['kd_ratio'] >= 1.0:
+    if assists >= 13 and kd_ratio >= 1.0:
         if agente != 'Miks':
             merece_elogio = True
-            motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
-            motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
+            motivos_elogio.append(f"Garçom da rodada com {assists} assistências.")
+            motivos_elogio_IA.append(f"JOGADOR TEVE {assists} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
         else:
-            if dados_jogador['assists'] >= 25:
+            if assists >= 25:
                 merece_elogio = True
-                motivos_elogio.append(f"Garçom da rodada com {dados_jogador['assists']} assistências.")
-                motivos_elogio_IA.append(f"JOGADOR TEVE {dados_jogador['assists']} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
+                motivos_elogio.append(f"Garçom da rodada com {assists} assistências.")
+                motivos_elogio_IA.append(f"JOGADOR TEVE {assists} ASSISTÊNCIAS E FICOU COM KD POSITIVO/NEUTRO. AJUDOU MUITO O TIME")
         
 
-    elogio = {
-        'merece_elogio': merece_elogio,
-        'motivos_elogio': motivos_elogio,
-        'motivos_elogio_IA': motivos_elogio_IA,
-        'rank_up': rank_up
-    }
-    return elogio
+    return ResultadoJulgamento(
+        ativo=merece_elogio,
+        motivos=motivos_elogio,
+        motivos_ia=motivos_elogio_IA,
+        rank_up=rank_up
+    )
 
-def pegar_dados_para_o_embed(dados_jogador,dados_partida):
+def pegar_dados_para_o_embed(dados_jogador: DadosJogador,dados_partida):
     """
     Pega os dados especificos de dados_jogador e dados_partida que servirao pra montar o embed do discord (colocando aqui pra deixar o main mais organizado)
-    RETORNA um dicionario com: foto_agente(url(eu acho)), bannr_jogador(url(tbm acho)), nome_jogador(str), mapa(str)
+    RETORNA um objeto de DadosEmbed
     """
 
     foto_agente = None
@@ -323,22 +338,21 @@ def pegar_dados_para_o_embed(dados_jogador,dados_partida):
     nome_agente = None
     mapa = None
 
-    foto_agente = dados_jogador['estatisticas_alvo']['assets']['agent']['small']
-    banner_jogador = dados_jogador['estatisticas_alvo']['assets']['card']['wide']
-    nome_agente = dados_jogador['estatisticas_alvo']['character']
+    foto_agente = dados_jogador.estatisticas_alvo['assets']['agent']['small']
+    banner_jogador = dados_jogador.estatisticas_alvo['assets']['card']['wide']
+    nome_agente = dados_jogador.estatisticas_alvo['character']
     mapa = dados_partida['data']['metadata']['map']
-    elo_imagem = dados_jogador.get('dados_mmr', {}).get('data', {}).get('images', {}).get('large')
-    dados_embed = {
-        'foto_agente': foto_agente,
-        'banner_jogador': banner_jogador,
-        'nome_agente': nome_agente,
-        'mapa': mapa,
-        'elo_imagem': elo_imagem
-    }
+    elo_imagem = (dados_jogador.dados_mmr or {}).get('data', {}).get('images', {}).get('large')
+    
+    return DadosEmbed(
+        foto_agente=foto_agente,
+        banner_jogador=banner_jogador,
+        nome_agente=nome_agente,
+        mapa=mapa,
+        elo_imagem=elo_imagem
+    )
 
-    return dados_embed
-
-async def enviar_embeds(dados_envio):
+async def enviar_embeds(dados_envio: DadosEnvio):
     """
     pega todos os destinos da notificacao, manda fazer os embeds e depois envia
     """
@@ -356,15 +370,15 @@ async def enviar_embeds(dados_envio):
         print(f"Faxina: {len(lixo_para_apagar)} aviso(s) expirado(s) removido(s) da memória.")
     
     embeds_gerados = {}
-    destinos = dados_envio['destinos']
-    punicao = dados_envio['punicao']
-    elogio = dados_envio['elogio']
-    nome_jogador = dados_envio['nome_jogador']
-    discord_id = dados_envio['discord_id']
-    client = dados_envio['client']
+    destinos = dados_envio.destinos
+    punicao = dados_envio.punicao
+    elogio = dados_envio.elogio
+    nome_jogador = dados_envio.nome_jogador
+    discord_id = dados_envio.discord_id
+    client = dados_envio.client
 
-    motivos_punicao_IA = punicao['motivos_punicao_IA']
-    motivos_elogio_IA = elogio['motivos_elogio_IA']
+    motivos_punicao_IA = punicao.motivos_ia
+    motivos_elogio_IA = elogio.motivos_ia
 
     for destino in destinos:
         id_canal = destino['canal']
@@ -377,7 +391,7 @@ async def enviar_embeds(dados_envio):
             print(f'Cargo configurado mas canal nao configurado')
             continue
         
-        if punicao['punitivo'] and elogio['merece_elogio']:
+        if punicao.ativo and elogio.ativo:
             textos_elogio_temp = list(motivos_elogio_IA)
             textos_punicao_temp = list(motivos_punicao_IA)
 
@@ -389,18 +403,18 @@ async def enviar_embeds(dados_envio):
             for m_punicao in textos_punicao_temp:
                 motivos_elogio_IA.append(m_punicao)
 
-        if punicao['punitivo']:
+        if punicao.ativo:
             msg = StringIO()
-            for m in punicao['motivos_punicao']:
+            for m in punicao.motivos:
                 msg.write(f"- {m}\n")
 
             if modo_ia not in embeds_gerados:
                 embeds_gerados[modo_ia] = await gerar_embed(dados_envio, modo_ia, msg)
             modo = 'Punicao ' + str(modo_ia)
             
-        if elogio['merece_elogio']:
+        if elogio.ativo:
             msg = StringIO()
-            for m in elogio['motivos_elogio']:
+            for m in elogio.motivos:
                 msg.write(f"- {m}\n")
 
             if 'elogio' not in embeds_gerados:
@@ -415,7 +429,7 @@ async def enviar_embeds(dados_envio):
             if id_cargo:
                 texto_ping += f"<@&{id_cargo}>"
             
-            if punicao['punitivo']:
+            if punicao.ativo:
                 msg_enviada = await canal.send(content=texto_ping, embed=embeds_gerados[modo_ia])
 
                 avisos_ativos[msg_enviada.id] = {
@@ -423,7 +437,7 @@ async def enviar_embeds(dados_envio):
                     "interacoes": {}, # Vai guardar {id_do_usuario: quantidade_de_respostas}
                     "contexto": embeds_gerados[modo_ia].description # O texto que a IA usou no aviso
                 }
-            if elogio['merece_elogio']:
+            if elogio.ativo:
                 msg_enviada_elogio = await canal.send(content=texto_ping, embed=embeds_gerados['elogio'])
 
                 avisos_ativos[msg_enviada_elogio.id] = {
@@ -440,31 +454,31 @@ async def enviar_embeds(dados_envio):
         except discord.errors.Forbidden:
             print(f"Erro: Sem permissão no canal {id_canal}.")
 
-async def gerar_embed(dados_envio, modo, msg):
+async def gerar_embed(dados_envio:DadosEnvio, modo, msg):
     """
     recebe os dados e constroi o embed do tipo pedido (punicao ou elogio)
     """
     embed = None
 
-    punicao = dados_envio['punicao']
-    elogio = dados_envio['elogio']
-    dados_embed = dados_envio['dados_embed']
-    dados_jogador = dados_envio['dados_jogador']
-    nome_jogador = dados_envio['nome_jogador']
+    punicao = dados_envio.punicao
+    elogio = dados_envio.elogio
+    dados_embed = dados_envio.dados_embed
+    dados_jogador = dados_envio.dados_jogador
+    nome_jogador = dados_envio.nome_jogador
 
-    kills = dados_jogador['kills']
-    deaths = dados_jogador['deaths']
-    assists = dados_jogador['assists']
-    nome_agente = dados_embed['nome_agente']
-    mapa = dados_embed['mapa']
-    foto_agente = dados_embed['foto_agente']
-    banner_jogador = dados_embed['banner_jogador']
-    elo_imagem = dados_embed['elo_imagem']
-    rank_up = elogio['rank_up']
+    kills = dados_jogador.kills
+    deaths = dados_jogador.deaths
+    assists = dados_jogador.assists
+    nome_agente = dados_embed.nome_agente
+    mapa = dados_embed.mapa
+    foto_agente = dados_embed.foto_agente
+    banner_jogador = dados_embed.banner_jogador
+    elo_imagem = dados_embed.elo_imagem
+    rank_up = elogio.rank_up
 
     if modo == 'elogio':
         print(f"Gerando IA e montando o Embed do Modo Elogio para {nome_jogador}...")
-        texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, elogio['motivos_elogio_IA'])
+        texto_ia_elogio = await gerar_elogio(nome_jogador, nome_agente, mapa, elogio.motivos_ia)
         
         embed_vitoria = discord.Embed(
             description=texto_ia_elogio,
@@ -488,7 +502,7 @@ async def gerar_embed(dados_envio, modo, msg):
         print(f"Gerando IA e montando o Embed do Modo {modo} para {nome_jogador}...")
         
         # 1. Gera o texto na IA
-        texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, punicao['motivos_punicao_IA'],modo)
+        texto_ia = await gerar_humilhacao(nome_jogador, nome_agente, mapa, punicao.motivos_ia,modo)
         
         # 2. Constrói o Embed UMA ÚNICA VEZ para este modo
         embed = discord.Embed(

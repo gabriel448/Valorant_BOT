@@ -13,6 +13,7 @@ from collections import deque
 from comandos import configurar_comandos
 from utils import enviar_aviso_md3, atualizar_status_discord, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
 from msg import gerar_resposta_rebate
+from modelos import DadosEnvio, DadosPartidasRecentes
 
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
@@ -116,15 +117,15 @@ async def monitoramento_continuo():
                 print(f"Match id atualizado para {nome_jogador}")
                 cache_partidas_vistas.append(novo_match_id)
                 
-                dados_ultimas_partidas = {
-                    'partidas_recentes': partidas_recentes,
-                    'ultimo_match_salvo': ultimo_match_salvo,
-                    'puuid': puuid,
-                    'nome_jogador': nome_jogador,
-                    'streak_atual': streak_atual,
-                    'win_streak_atual': win_streak,
-                    'cache_partidas_vistas': cache_partidas_vistas
-                }
+                dados_ultimas_partidas = DadosPartidasRecentes(
+                    partidas_recentes= partidas_recentes,
+                    ultimo_match_salvo= ultimo_match_salvo,
+                    puuid= puuid,
+                    nome_jogador= nome_jogador,
+                    loss_streak_atual= streak_atual,
+                    win_streak_atual= win_streak,
+                    cache_partida_vistas= cache_partidas_vistas
+                )
 
                 #olha as ultimas 5 partidas pra atualizar o losstreak
                 await verificar_ultimas_partidas(dados_ultimas_partidas)
@@ -152,15 +153,15 @@ async def monitoramento_continuo():
                     continue
                 
                 #pega informacoes do elo do jogador, como imagem, nome etc...
-                dados_elo = await pegar_dados_do_elo(dados_jogador['dados_mmr'])
+                dados_elo = await pegar_dados_do_elo(dados_jogador.dados_mmr)
                 
                 if not dados_elo:
                     print(f'Erro: nao foi possivel pegar os dados do elo do jogador {nome_jogador}')
                     continue
 
-                if dados_jogador['elo_banco_int'] == 0:
+                if dados_jogador.elo_banco_int == 0:
                     #primeira vez que o bot ve esse cara jogar. apenas salva no banco de dados o elo "novo"
-                    print(f"[{nome_jogador}] Elo base registrado: {dados_elo['elo_atual_nome']} ({dados_elo['elo_atual_int']})")
+                    print(f"[{nome_jogador}] Elo base registrado: {dados_elo.elo_atual_nome} ({dados_elo.elo_atual_int})")
                 
                 #verifica se ele cometeu algum crime, e devolve um dicionario com o relatorio pra gerar a humilhacao
                 punicao = await verificar_regras_punicao(dados_elo, dados_jogador, streak_atual)
@@ -168,15 +169,15 @@ async def monitoramento_continuo():
                 #verifica se ele jogou bem e devolve um dicionario ralatorio pra gerar o elogio
                 elogio = await verificar_regras_elogio(dados_elo,dados_jogador, win_streak)
 
-                if punicao['punitivo'] or elogio['merece_elogio']:
+                if punicao.ativo or elogio.ativo:
                     #pega alguns elementos visuais e escritos pra montar o embed pro discord
                     dados_embed = pegar_dados_para_o_embed(dados_jogador,dados_partida)
                     
                     destinos = await pegar_canais_e_cargos_do_jogador(discord_id)
 
                     
-                    qtd_punicoes = len(punicao['motivos_punicao']) if punicao['punitivo'] else 0
-                    qtd_elogios = len(elogio['motivos_elogio']) if elogio['merece_elogio'] else 0
+                    qtd_punicoes = len(punicao.motivos) if punicao.ativo else 0
+                    qtd_elogios = len(elogio.motivos) if elogio.ativo else 0
 
                     #ajusta a pontuacao do rank do explanator no banco de dados
                     resultado_md3 = await alterar_pontos_explanator(puuid, qtd_punicoes, qtd_elogios)
@@ -189,16 +190,16 @@ async def monitoramento_continuo():
                     if not destinos:
                             print(f"O jogador {nome_jogador} fez vexame, mas nenhum servidor tem canal configurado.")  
 
-                    dados_envio = {
-                        'destinos': destinos,
-                        'discord_id': discord_id,
-                        'dados_jogador': dados_jogador,
-                        'nome_jogador': nome_jogador,
-                        'dados_embed' : dados_embed,
-                        'punicao': punicao,
-                        'elogio': elogio,
-                        'client': client
-                    }
+                    dados_envio = DadosEnvio(
+                        destinos=destinos,
+                        discord_id=discord_id,
+                        dados_jogador=dados_jogador,
+                        nome_jogador=nome_jogador,
+                        dados_embed=dados_embed,
+                        punicao=punicao,
+                        elogio=elogio,
+                        client=client
+                    )
 
                     #aqui faz bastante coisa, pega todos os canais que eh pra mandar o aviso, gera os tipos de embeds necessarios
                     #depois envie pra todos os canais
