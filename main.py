@@ -47,7 +47,7 @@ async def on_ready():
     jogadores = await pegar_todos_alvos()
     for jogador in jogadores:
         if jogador['last_match_id']:
-            cache_partidas_vistas.append(jogador['last_match_id'])
+            cache_partidas_vistas.append(f"{jogador['riot_puuid']}_{jogador['last_match_id']}")
 
     print(f'Sucesso - Bot {client.user.name} acordou e esta online no Discord')
     print('Aguardando informacaoes')
@@ -87,7 +87,7 @@ async def monitoramento_continuo():
                     if not mid: continue
                     
                     # Chegou na última partida que o bot conhece
-                    if mid == ultimo_match_salvo or mid in cache_partidas_vistas:
+                    if mid == ultimo_match_salvo or f"{puuid}_{mid}" in cache_partidas_vistas:
                         break
                     partidas_nao_vistas.append(partida)
 
@@ -100,7 +100,7 @@ async def monitoramento_continuo():
                         except Exception as e:
                             print(f'Erro ao carregar matchID de uma das partidas recentes do (adicionando ao cache) {nome_jogador}')
                             continue
-                        if mid and mid not in cache_partidas_vistas:
+                        if mid and f"{puuid}_{mid}" not in cache_partidas_vistas:
                             cache_partidas_vistas.append(mid)
                     await asyncio.sleep(1.5)
                     continue
@@ -115,7 +115,6 @@ async def monitoramento_continuo():
                 # Atualiza o banco e o cache com ELA (no próximo loop, ele avança pra mais recente se tiver)
                 await atualizar_match_id(puuid, novo_match_id)
                 print(f"Match id atualizado para {nome_jogador}")
-                cache_partidas_vistas.append(novo_match_id)
                 
                 dados_ultimas_partidas = DadosPartidasRecentes(
                     partidas_recentes= partidas_recentes,
@@ -129,7 +128,8 @@ async def monitoramento_continuo():
 
                 #olha as ultimas 5 partidas pra atualizar o losstreak
                 await verificar_ultimas_partidas(dados_ultimas_partidas)
-
+                cache_partidas_vistas.append(novo_match_id)
+                
                 dados_partida = await obter_detalhes_partida(novo_match_id)
 
                 try:

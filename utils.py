@@ -78,7 +78,7 @@ async def verificar_ultimas_partidas(dados: DadosPartidasRecentes):
             continue 
             
         # 100% de certeza que metadata existe e tem um matchid seguro para comparar
-        if metadata['matchid'] == ultimo_match_salvo or metadata['matchid'] in cache_partidas_vistas:
+        if metadata['matchid'] == ultimo_match_salvo or f"{puuid}_{metadata['matchid']}" in cache_partidas_vistas:
             break # chegou onde o bot conhecia
             
         novas_partidas.append(partida)
