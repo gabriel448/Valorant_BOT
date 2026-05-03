@@ -283,7 +283,7 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     mes_atual = datetime.now().strftime("%Y-%m")
     
     # 2. Pega os dados atuais do jogador
-    query_busca = "SELECT pontos_explanator, alertas_md3, mes_referencia FROM jogadores_monitorados WHERE riot_puuid = $1"
+    query_busca = "SELECT pontos_explanator, alertas_md3, mes_referencia, punicoes_md3, elogios_md3 FROM jogadores_monitorados WHERE riot_puuid = $1"
     registro = await conn.fetchrow(query_busca, puuid)
     
     if not registro:
