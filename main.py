@@ -101,7 +101,7 @@ async def monitoramento_continuo():
                             print(f'Erro ao carregar matchID de uma das partidas recentes do (adicionando ao cache) {nome_jogador}')
                             continue
                         if mid and f"{puuid}_{mid}" not in cache_partidas_vistas:
-                            cache_partidas_vistas.append(mid)
+                            cache_partidas_vistas.append(f"{puuid}_{mid}")
                     await asyncio.sleep(1.5)
                     continue
                 print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")

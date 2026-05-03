@@ -115,6 +115,7 @@ async def verificar_ultimas_partidas(dados: DadosPartidasRecentes):
     await atualizar_loss_streak(puuid, streak_atual)
     await atualizar_win_streak(puuid, win_streak_atual)
     print(f"Lossstreak e winstreak atualizados para {nome_jogador}")
+    return streak_atual, win_streak_atual
 
 async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
     """
