@@ -137,6 +137,10 @@ async def monitoramento_continuo():
 
                 if modo != "Competitive":
                     print(f"Era apenas um {modo}")
+                    # Atualiza o banco e o cache com ELA (no próximo loop, ele avança pra mais recente se tiver)
+                    await atualizar_match_id(puuid, novo_match_id)
+                    print(f"Match id atualizado para {nome_jogador}")
+                    cache_partidas_vistas.append(f"{puuid}_{novo_match_id}")
                     continue
                 
                 if not dados_partida:
@@ -210,7 +214,7 @@ async def monitoramento_continuo():
                 await atualizar_match_id(puuid, novo_match_id)
                 print(f"Match id atualizado para {nome_jogador}")
                 cache_partidas_vistas.append(f"{puuid}_{novo_match_id}")
-                
+
             except Exception as e:
                 print(f"Erro inesperado ao processar {nome_jogador}: {e}")
                 continue
