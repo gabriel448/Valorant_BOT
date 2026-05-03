@@ -296,6 +296,7 @@ async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: 
     mes_banco = registro['mes_referencia']
     punicoes_md3 = registro['punicoes_md3']
     elogios_md3 = registro['elogios_md3']
+    resultado_md3 = None
     
     # 3. LAZY RESET (Começo do mês)
     if mes_banco != mes_atual:
