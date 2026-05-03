@@ -107,6 +107,7 @@ async def verificar_ultimas_partidas(dados: DadosPartidasRecentes):
                     elif rounds_ganhos == rounds_perdidos:
                         print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Loss streak ignorada.")
                     else:
+                        win_streak_atual = 0
                         streak_atual += 1
                 else:
                     print("Erro: 'has_won' nao eh um item de partida")
