@@ -111,10 +111,6 @@ async def monitoramento_continuo():
                 partida_alvo = partidas_nao_vistas[-1]
                 novo_match_id = partida_alvo['metadata']['matchid']
                 print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
-
-                # Atualiza o banco e o cache com ELA (no próximo loop, ele avança pra mais recente se tiver)
-                await atualizar_match_id(puuid, novo_match_id)
-                print(f"Match id atualizado para {nome_jogador}")
                 
                 dados_ultimas_partidas = DadosPartidasRecentes(
                     partidas_recentes= partidas_recentes,
@@ -127,8 +123,10 @@ async def monitoramento_continuo():
                 )
 
                 #olha as ultimas 5 partidas pra atualizar o losstreak
-                await verificar_ultimas_partidas(dados_ultimas_partidas)
-                cache_partidas_vistas.append(novo_match_id)
+                novas_streaks = await verificar_ultimas_partidas(dados_ultimas_partidas)
+                if novas_streaks:
+                    streak_atual = novas_streaks[0]
+                    win_streak = novas_streaks[1]
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
 
@@ -208,7 +206,11 @@ async def monitoramento_continuo():
                 else:
                     print(f"{nome_jogador} jogou bem (ou medianamente). Nenhuma punição necessária.")
                 await asyncio.sleep(5)
-
+                # Atualiza o banco e o cache com ELA (no próximo loop, ele avança pra mais recente se tiver)
+                await atualizar_match_id(puuid, novo_match_id)
+                print(f"Match id atualizado para {nome_jogador}")
+                cache_partidas_vistas.append(f"{puuid}_{novo_match_id}")
+                
             except Exception as e:
                 print(f"Erro inesperado ao processar {nome_jogador}: {e}")
                 continue
