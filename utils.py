@@ -7,7 +7,7 @@ from io import StringIO
 from datetime import datetime
 import aiohttp
 import time
-from modelos import DadosJogador, ResultadoJulgamento, DadosEmbed, DadosEnvio, DadosElo, DadosPartidasRecentes
+from modelos import DadosJogador, ResultadoJulgamento, DadosEmbed, DadosEnvio, DadosElo
 
 # Guarda os IDs das mensagens. Formato: {msg_id: {"tempo": timestamp, "interacoes": {}, "contexto": "texto do embed"}}
 avisos_ativos = {}
@@ -54,68 +54,52 @@ def ajuste_fuso_horario(hora:str, diferenca:int):
             return None
     return None
 
-async def verificar_ultimas_partidas(dados: DadosPartidasRecentes):
+async def atualizar_streaks_pela_partida(partida, puuid, streak_atual, win_streak_atual, nome_jogador):
     """
-    Verifica as ultimas 5 partidas do jogador pra verificar e atualizar seu losstreak
+    Recebe UMA partida e os dados atuais do jogador, calcula o novo streak e salva no banco.
+    Retorna (novo_streak_loss, novo_streak_win)
     """
+    # Só conta para partidas competitivas
+    if partida.get('metadata', {}).get('mode') != 'Competitive':
+        return streak_atual, win_streak_atual
 
-    partidas_recentes = dados.partidas_recentes
-    ultimo_match_salvo = dados.ultimo_match_salvo
-    puuid = dados.puuid
-    nome_jogador = dados.nome_jogador
-    streak_atual = dados.loss_streak_atual
-    cache_partidas_vistas = dados.cache_partida_vistas
-    win_streak_atual = dados.win_streak_atual
-
-    novas_partidas = []
-    for partida in partidas_recentes:
-        # O .get() puxa o metadata. Se a chave não existir ou for nula, a variável vira None silenciosamente.
-        metadata = partida.get('metadata')
-        
-        # Se não tem metadata, ou se tem metadata mas não tem o matchid dentro dele:
-        if not metadata or not metadata.get('matchid'):
-            print("Aviso: A API entregou uma partida corrompida/vazia. Ignorando...")
-            continue 
-            
-        # 100% de certeza que metadata existe e tem um matchid seguro para comparar
-        if metadata['matchid'] == ultimo_match_salvo or f"{puuid}_{metadata['matchid']}" in cache_partidas_vistas:
-            break # chegou onde o bot conhecia
-            
-        novas_partidas.append(partida)
-
-    novas_partidas.reverse()
+    time_jogador = None
+    # Encontra o time do jogador na partida
+    for p in partida.get('players', {}).get('all_players', []):
+        if p.get('puuid') == puuid:
+            time_jogador = p.get('team')
+            break
     
-    #Verificando as ultimas 5 partidas jogadas
-    for partida in novas_partidas:
-        if partida['metadata']['mode'] == 'Competitive':
-            time_jogador = None
-            for p in partida['players']['all_players']:
-                if p['puuid'] == puuid:
-                    time_jogador = p['team']
-                    break
-            
-            time_minusculo = time_jogador.lower()
-            if time_jogador:
-                dados_time = partida['teams'].get(time_minusculo, {})
-                rounds_ganhos = dados_time.get('rounds_won', 0)
-                rounds_perdidos = dados_time.get('rounds_lost', 0)
-                if 'has_won' in partida['teams'][time_minusculo]:
-                    venceu = partida['teams'][time_minusculo]['has_won']
-                    if venceu:
-                        streak_atual = 0
-                        win_streak_atual += 1
-                    elif rounds_ganhos == rounds_perdidos:
-                        print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Loss streak ignorada.")
-                    else:
-                        win_streak_atual = 0
-                        streak_atual += 1
-                else:
-                    print("Erro: 'has_won' nao eh um item de partida")
+    if not time_jogador:
+        return streak_atual, win_streak_atual
+
+    time_minusculo = time_jogador.lower()
+    times = partida.get('teams', {})
+    dados_time = times.get(time_minusculo, {})
     
-    # Atualiza o loss streak no banco de dados
+    rounds_ganhos = dados_time.get('rounds_won', 0)
+    rounds_perdidos = dados_time.get('rounds_lost', 0)
+
+    if 'has_won' in dados_time:
+        venceu = dados_time['has_won']
+        if venceu:
+            streak_atual = 0
+            win_streak_atual += 1
+        elif rounds_ganhos == rounds_perdidos:
+            # Empate ou Remake: Quebra a sequência de vitórias, mas não conta como derrota
+            win_streak_atual = 0 
+            print(f"[{nome_jogador}] Empate/Remake detectado ({rounds_ganhos} a {rounds_perdidos}). Win streak resetada.")
+        else:
+            # Derrota
+            win_streak_atual = 0
+            streak_atual += 1
+    else:
+        print(f"Erro: 'has_won' não encontrado nos dados do time para {nome_jogador}")
+    
+    # Atualiza o banco de dados imediatamente para esta partida
     await atualizar_loss_streak(puuid, streak_atual)
     await atualizar_win_streak(puuid, win_streak_atual)
-    print(f"Lossstreak e winstreak atualizados para {nome_jogador}")
+    
     return streak_atual, win_streak_atual
 
 async def pegar_dados_do_jogador(dados_partida, puuid, jogador):

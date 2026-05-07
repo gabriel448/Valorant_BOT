@@ -11,9 +11,9 @@ from database import limpar_dados_servidor, alterar_pontos_explanator, iniciar_b
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
-from utils import enviar_aviso_md3, atualizar_status_discord, verificar_ultimas_partidas, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
+from utils import enviar_aviso_md3, atualizar_status_discord, atualizar_streaks_pela_partida, pegar_dados_do_jogador,pegar_dados_do_elo,verificar_regras_punicao, verificar_regras_elogio, pegar_dados_para_o_embed, enviar_embeds, avisos_ativos
 from msg import gerar_resposta_rebate
-from modelos import DadosEnvio, DadosPartidasRecentes
+from modelos import DadosEnvio
 
 
 # Cria uma memória global que guarda os últimos 500 Match IDs que o bot viu
@@ -112,21 +112,8 @@ async def monitoramento_continuo():
                 novo_match_id = partida_alvo['metadata']['matchid']
                 print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
                 
-                dados_ultimas_partidas = DadosPartidasRecentes(
-                    partidas_recentes= partidas_recentes,
-                    ultimo_match_salvo= ultimo_match_salvo,
-                    puuid= puuid,
-                    nome_jogador= nome_jogador,
-                    loss_streak_atual= streak_atual,
-                    win_streak_atual= win_streak,
-                    cache_partida_vistas= cache_partidas_vistas
-                )
-
-                #olha as ultimas 5 partidas pra atualizar o losstreak
-                novas_streaks = await verificar_ultimas_partidas(dados_ultimas_partidas)
-                if novas_streaks:
-                    streak_atual = novas_streaks[0]
-                    win_streak = novas_streaks[1]
+                #olha a partida que estamos processando agora pra atualizar o streak
+                streak_atual, win_streak = await atualizar_streaks_pela_partida(partida_alvo, puuid, streak_atual, win_streak, nome_jogador)
                 
                 dados_partida = await obter_detalhes_partida(novo_match_id)
 

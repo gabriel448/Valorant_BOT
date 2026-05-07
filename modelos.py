@@ -51,12 +51,3 @@ class DadosElo:
     elo_atual_nome: str
     elo_atual_imagem: Any
 
-@dataclass
-class DadosPartidasRecentes:
-    partidas_recentes: List[Any]
-    ultimo_match_salvo: Any
-    puuid: str
-    nome_jogador: str
-    loss_streak_atual: int
-    win_streak_atual: int
-    cache_partida_vistas: Any
