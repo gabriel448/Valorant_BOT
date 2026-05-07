@@ -8,8 +8,8 @@ import asyncpg
 from utils import gerar_embed
 from api import obter_puuid_henrik
 from database import DATABASE_URL,pegar_cargo_servidor, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
-from utils import enviar_aviso_md3,calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo
-from imagem_builder import criar_imagem_leaderboard
+from utils import enviar_aviso_md3, calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo, ELOS_EXPLANATOR
+from imagem_builder import criar_imagem_leaderboard, criar_imagem_progresso_explanator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -642,48 +642,85 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         # Cálculos e Lógica de Elo
         punicoes = status["total_punicoes"]
         elogios = status["total_elogios"]
+        pontos = status["pontos_explanator"]
+        alertas_md3 = status["alertas_md3"]
         
         # P/E Ratio (Evitando de divisão por zero)
         if elogios == 0:
-            pe_ratio = float(punicoes) # Se não tem elogio, P/E é igual a punição
+            pe_ratio = float(punicoes)
         else:
             pe_ratio = punicoes / elogios
 
-        rank_nome = calcular_elo_explanator(status["pontos_explanator"], status["alertas_md3"])
-        
-        # Pega a URL do Ícone do Elo
         temporada_atual = await pegar_temporada_atual()
-        if status["alertas_md3"] < 3:
-            icon_url = pegar_url_elo(0, temporada_atual) # Ícone Unranked
+        
+        # Lógica de Ranks para a barra
+        indice_atual = pontos // 3
+        if indice_atual >= len(ELOS_EXPLANATOR): indice_atual = len(ELOS_EXPLANATOR) - 1
+        
+        rank_nome_explanator = ELOS_EXPLANATOR[indice_atual]
+        
+        # Se estiver em MD3, o nome do Rank no título é diferente
+        rank_exibicao = rank_nome_explanator
+        if alertas_md3 < 3:
+            rank_exibicao = f"MD3 ({alertas_md3}/3)"
+            icon_atual_url = pegar_url_elo(0, temporada_atual) # Unranked
         else:
-            indice_api = (status["pontos_explanator"] // 3) + 3 
-            if indice_api > 27: indice_api = 27 
-            icon_url = pegar_url_elo(indice_api, temporada_atual)
+            icon_atual_url = pegar_url_elo(indice_atual + 3, temporada_atual)
+
+        # Elo Próximo e Anterior
+        indice_proximo = indice_atual + 1
+        if indice_proximo >= len(ELOS_EXPLANATOR): indice_proximo = len(ELOS_EXPLANATOR) - 1
+        
+        indice_anterior = indice_atual - 1
+        if indice_anterior < 0: indice_anterior = 0
+        
+        rank_anterior = ELOS_EXPLANATOR[indice_anterior]
+        rank_proximo = ELOS_EXPLANATOR[indice_proximo]
+        
+        icon_anterior_url = pegar_url_elo(indice_anterior + 3, temporada_atual)
+        icon_proximo_url = pegar_url_elo(indice_proximo + 3, temporada_atual)
+
+        # Gerar a imagem de progresso
+        imagem_progresso = await criar_imagem_progresso_explanator(
+            pontos, 
+            rank_nome_explanator, 
+            rank_anterior, 
+            rank_proximo, 
+            pegar_url_elo(indice_atual + 3, temporada_atual), # Sempre usa o ícone do rank real na barra
+            icon_anterior_url, 
+            icon_proximo_url
+        )
 
         embed = discord.Embed(
             title=f"📋 Ficha de Status: {status['nome_riot']}",
             description=f"Estatísticas do jogador no Explanator.",
-            color=0x8A2BE2 # Roxo bonito
+            color=0x8A2BE2
         )
         
-        #avatar do discord
+        # avatar do discord
         avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
         embed.set_thumbnail(url=avatar_url)
         
-        # Ícone do Elo ao lado direito da imagem
-        if icon_url:
-            embed.set_author(name=rank_nome, icon_url=icon_url) # Coloca o ícone grande embaixo ou como banner se preferir, ou deixe no thumbnail
+        # Ícone do Elo no Author
+        if icon_atual_url:
+            embed.set_author(name=rank_exibicao, icon_url=icon_atual_url)
 
         # Campos de informação
-        embed.add_field(name="🏆 Rank Atual", value=f"**{rank_nome}**", inline=False)
+        embed.add_field(name="🏆 Rank Atual", value=f"**{rank_exibicao}**", inline=True)
+        embed.add_field(name="⚖️ Taxa P/E", value=f"**{pe_ratio:.2f}**", inline=True)
+        embed.add_field(name="📊 Pontos", value=f"**{pontos}**", inline=True)
+        
         embed.add_field(name="🚨 Punições", value=f"{punicoes}", inline=True)
         embed.add_field(name="🌟 Elogios", value=f"{elogios}", inline=True)
-        embed.add_field(name="⚖️ Taxa P/E", value=f"**{pe_ratio:.2f}**", inline=True)
+        embed.add_field(name="📅 MD3", value=f"{alertas_md3}/3", inline=True)
         
-        # Rodapé
+        # Adiciona a imagem de progresso
+        arquivo = discord.File(fp=imagem_progresso, filename="progresso.png")
+        embed.set_image(url="attachment://progresso.png")
+        
         embed.set_footer(text=f"ID: {usuario.id} | Explanator")
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(file=arquivo, embed=embed)
     
     @tree.command(name="condicoes", description="Mostra o livro de regras oficial do Explanator.")
     async def regras_cmd(interaction: discord.Interaction):

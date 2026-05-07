@@ -95,3 +95,79 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
     buffer.seek(0)
     
     return buffer
+
+async def criar_imagem_progresso_explanator(pontos, rank_atual, rank_anterior, rank_proximo, icon_atual_url, icon_anterior_url, icon_proximo_url):
+    """
+    Cria uma barra de progresso visual mostrando o quão longe o jogador está de subir ou descer de rank.
+    """
+    largura = 600
+    altura = 250
+    
+    # Cores
+    cor_fundo = (20, 20, 20, 255)
+    cor_barra_vazia = (50, 50, 50, 255)
+    cor_progresso = (0, 255, 127, 255) # Verde Primavera
+    
+    fundo = Image.new('RGBA', (largura, altura), cor_fundo)
+    draw = ImageDraw.Draw(fundo)
+    
+    try:
+        fonte_media = ImageFont.truetype("LiberationSans-Bold.ttf", 20)
+        fonte_pequena = ImageFont.truetype("LiberationSans-Regular.ttf", 16)
+    except:
+        fonte_media = ImageFont.load_default()
+        fonte_pequena = ImageFont.load_default()
+
+    # Baixar ícones
+    icon_atual = await baixar_imagem(icon_atual_url) if icon_atual_url else None
+    icon_anterior = await baixar_imagem(icon_anterior_url) if icon_anterior_url else None
+    icon_proximo = await baixar_imagem(icon_proximo_url) if icon_proximo_url else None
+
+    # Desenhar Ícones e Nomes
+    y_icones = 60
+    espacamento_lateral = 80
+    
+    if icon_anterior:
+        icon_anterior = icon_anterior.resize((60, 60))
+        fundo.paste(icon_anterior, (espacamento_lateral - 30, y_icones), mask=icon_anterior)
+        draw.text((espacamento_lateral, y_icones + 75), rank_anterior, font=fonte_pequena, fill=(180, 180, 180), anchor="mm")
+
+    if icon_proximo:
+        icon_proximo = icon_proximo.resize((60, 60))
+        fundo.paste(icon_proximo, (largura - espacamento_lateral - 30, y_icones), mask=icon_proximo)
+        draw.text((largura - espacamento_lateral, y_icones + 75), rank_proximo, font=fonte_pequena, fill=(180, 180, 180), anchor="mm")
+
+    if icon_atual:
+        icon_atual = icon_atual.resize((90, 90))
+        fundo.paste(icon_atual, (largura // 2 - 45, y_icones - 15), mask=icon_atual)
+        draw.text((largura // 2, y_icones + 90), rank_atual, font=fonte_media, fill=(255, 255, 255), anchor="mm")
+
+    # Desenhar Barra de Progresso
+    y_barra = 180
+    altura_barra = 20
+    margem_barra = 100
+    largura_util = largura - (2 * margem_barra)
+    
+    # Background da barra
+    draw.rounded_rectangle([margem_barra, y_barra, largura - margem_barra, y_barra + altura_barra], radius=10, fill=cor_barra_vazia)
+    
+    # Progresso (pontos % 3)
+    progresso_num = pontos % 3
+    # Mapeia 0, 1, 2 para larguras da barra. 
+    # 0 pontos = 15% (quase caindo)
+    # 1 ponto = 50% (meio)
+    # 2 pontos = 85% (quase subindo)
+    progresso_map = {0: 0.15, 1: 0.50, 2: 0.85}
+    porcentagem = progresso_map.get(progresso_num, 0.5)
+    
+    largura_progresso = int(largura_util * porcentagem)
+    if largura_progresso > 5:
+        draw.rounded_rectangle([margem_barra, y_barra, margem_barra + largura_progresso, y_barra + altura_barra], radius=10, fill=cor_progresso)
+
+    # Texto de pontos
+    draw.text((largura // 2, y_barra + 40), f"Pontos: {pontos} ({progresso_num}/3)", font=fonte_pequena, fill=(200, 200, 200), anchor="mm")
+
+    buffer = io.BytesIO()
+    fundo.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
