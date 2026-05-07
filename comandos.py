@@ -8,7 +8,7 @@ import asyncpg
 from utils import gerar_embed
 from api import obter_puuid_henrik
 from database import DATABASE_URL,pegar_cargo_servidor, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
-from utils import enviar_aviso_md3, calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo, ELOS_EXPLANATOR
+from utils import enviar_aviso_md3, calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo, ELOS_EXPLANATOR, coletar_estatisticas_valorant
 from imagem_builder import criar_imagem_leaderboard, criar_imagem_progresso_explanator, criar_imagem_comparacao
 from dotenv import load_dotenv
 
@@ -552,7 +552,10 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
             {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
             {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor."},
-            {"nome": "📉 `/status-explanator`", "desc": "Mostra o seu status do explanator (apenas status do BOT explanator)."},
+            {"nome": "📉 `/status-explanator [usuario]`", "desc": "Mostra o Rank Explanator, punições, elogios e a barra de progresso de um jogador."},
+            {"nome": "⚔️ `/comparar-status-explanator [u1] [u2]`", "desc": "Duelo de Bagres! Compara quem é o pior jogador no ranking do Explanator."},
+            {"nome": "🎮 `/status-valorant [usuario]`", "desc": "Estatísticas reais (K/D, HS%, Win%) baseadas em suas **últimas partidas** (não o Ato inteiro)."},
+            {"nome": "🆚 `/comparar-status-valorant [u1] [u2]`", "desc": "Compara o desempenho competitivo real entre dois jogadores com base nas **últimas partidas**."},
             {"nome": "⚖️ `/condicoes`", "desc": "Mostra as condições de elogio e punição."},
             {"nome": "💌 `/mensagem-anonima`", "desc": "Manda uma mensagem anônima pro bot mandar no chat configurado."}
         ]
@@ -803,6 +806,105 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         arquivo = discord.File(fp=imagem_final, filename="duelo.png")
         embed.set_image(url="attachment://duelo.png")
+        
+        await interaction.followup.send(file=arquivo, embed=embed)
+
+    # ----- STATUS VALORANT -----
+    @tree.command(name="status-valorant", description="Mostra as estatísticas competitivas oficiais do jogador no Valorant.")
+    @app_commands.describe(usuario="O jogador para consultar")
+    async def status_valorant_cmd(interaction: discord.Interaction, usuario: discord.Member):
+        await interaction.response.defer()
+        
+        status = await pegar_status_jogador(usuario.id)
+        if not status:
+            await interaction.followup.send(f"❌ O jogador {usuario.mention} não está cadastrado no bot.")
+            return
+
+        stats = await coletar_estatisticas_valorant(status["puuid"])
+        
+        embed = discord.Embed(
+            title=f"🎮 Status Valorant: {status['nome_riot']}",
+            description=f"Estatísticas competitivas do Ato atual.",
+            color=0xFD4556 # Vermelho Valorant
+        )
+        
+        avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
+        embed.set_thumbnail(url=avatar_url)
+        
+        if stats['elo_url']:
+            embed.set_author(name=f"Elo: {stats['elo']}", icon_url=stats['elo_url'])
+
+        embed.add_field(name="🎯 K/D Ratio", value=f"**{stats['kd']:.2f}**", inline=True)
+        embed.add_field(name="🤯 % HS", value=f"**{stats['hs_percent']:.1f}%**", inline=True)
+        embed.add_field(name="📈 % Win", value=f"**{stats['win_percent']:.1f}%**", inline=True)
+        embed.add_field(name="💥 Dmg/Round", value=f"**{stats['dmg_round']:.1f}**", inline=True)
+        embed.add_field(name="🏆 Rank", value=f"**{stats['elo']}**", inline=True)
+        
+        embed.set_footer(text=f"Dados agregados via HenrikDev API | ID: {usuario.id}")
+        await interaction.followup.send(embed=embed)
+
+    # ----- COMPARAR STATUS VALORANT -----
+    @tree.command(name="comparar-status-valorant", description="Compara o desempenho competitivo de dois jogadores no Valorant.")
+    @app_commands.describe(jogador1="Primeiro jogador", jogador2="Segundo jogador")
+    async def comparar_valorant(interaction: discord.Interaction, jogador1: discord.Member, jogador2: discord.Member):
+        await interaction.response.defer()
+        
+        s1 = await pegar_status_jogador(jogador1.id)
+        s2 = await pegar_status_jogador(jogador2.id)
+
+        if not s1 or not s2:
+            await interaction.followup.send("❌ Um ou ambos os jogadores não estão cadastrados.")
+            return
+
+        stats1 = await coletar_estatisticas_valorant(s1["puuid"])
+        stats2 = await coletar_estatisticas_valorant(s2["puuid"])
+
+        # Lógica de Comparação (Quem é MELHOR? No valorant, MAIOR = melhor)
+        v1 = 0
+        v2 = 0
+        
+        if stats1['kd'] > stats2['kd']: v1 += 1
+        elif stats2['kd'] > stats1['kd']: v2 += 1
+        
+        if stats1['hs_percent'] > stats2['hs_percent']: v1 += 1
+        elif stats2['hs_percent'] > stats1['hs_percent']: v2 += 1
+        
+        if stats1['win_percent'] > stats2['win_percent']: v1 += 1
+        elif stats2['win_percent'] > stats1['win_percent']: v2 += 1
+        
+        if stats1['dmg_round'] > stats2['dmg_round']: v1 += 1
+        elif stats2['dmg_round'] > stats1['dmg_round']: v2 += 1
+        
+        if stats1['elo_rank'] > stats2['elo_rank']: v1 += 1
+        elif stats2['elo_rank'] > stats1['elo_rank']: v2 += 1
+
+        vencedor = jogador1 if v1 >= v2 else jogador2
+        perdedor = jogador2 if vencedor == jogador1 else jogador1
+        
+        # Imagem de Vitoria
+        v_url = vencedor.avatar.url if vencedor.avatar else vencedor.default_avatar.url
+        p_url = perdedor.avatar.url if perdedor.avatar else perdedor.default_avatar.url
+        
+        imagem = await criar_imagem_comparacao(str(v_url), str(p_url), vencedor.display_name, perdedor.display_name)
+        
+        embed = discord.Embed(
+            title="⚔️ DUELO VALORANT ⚔️",
+            description=f"Comparação entre {jogador1.mention} e {jogador2.mention}.",
+            color=0xFD4556
+        )
+        
+        def emoji(val1, val2):
+            if val1 == val2: return "⚪"
+            return "✅" if val1 > val2 else "❌"
+
+        embed.add_field(name="📊 Categorias", value="Elo (Rank)\nK/D Ratio\n% HS\n% Win\nDmg/Round", inline=True)
+        embed.add_field(name=f"👤 {jogador1.display_name}", value=f"{stats1['elo']} {emoji(stats1['elo_rank'], stats2['elo_rank'])}\n{stats1['kd']:.2f} {emoji(stats1['kd'], stats2['kd'])}\n{stats1['hs_percent']:.1f}% {emoji(stats1['hs_percent'], stats2['hs_percent'])}\n{stats1['win_percent']:.1f}% {emoji(stats1['win_percent'], stats2['win_percent'])}\n{stats1['dmg_round']:.1f} {emoji(stats1['dmg_round'], stats2['dmg_round'])}", inline=True)
+        embed.add_field(name=f"👤 {jogador2.display_name}", value=f"{stats2['elo']} {emoji(stats2['elo_rank'], stats1['elo_rank'])}\n{stats2['kd']:.2f} {emoji(stats2['kd'], stats1['kd'])}\n{stats2['hs_percent']:.1f}% {emoji(stats2['hs_percent'], stats1['hs_percent'])}\n{stats2['win_percent']:.1f}% {emoji(stats2['win_percent'], stats1['win_percent'])}\n{stats2['dmg_round']:.1f} {emoji(stats2['dmg_round'], stats1['dmg_round'])}", inline=True)
+
+        embed.add_field(name="🏆 VEREDITO", value=f"O jogador **{vencedor.display_name}** é o mais brabo no Valorant!", inline=False)
+        
+        arquivo = discord.File(fp=imagem, filename="vitoria.png")
+        embed.set_image(url="attachment://vitoria.png")
         
         await interaction.followup.send(file=arquivo, embed=embed)
     

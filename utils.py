@@ -1,5 +1,5 @@
 from database import atualizar_loss_streak,atualizar_tier_jogador, atualizar_win_streak
-from api import obter_mmr_jogador
+from api import obter_mmr_jogador, obter_mmr_v2, obter_partidas_v3
 import asyncio
 import discord
 from msg import gerar_humilhacao, gerar_elogio
@@ -595,5 +595,77 @@ async def enviar_aviso_md3(client, destinos, discord_id, nome_jogador, dados_md3
             await canal.send(content=texto_ping, embed=embed)
         except Exception as e:
             print(f"Erro ao enviar aviso de MD3 no canal {id_canal}: {e}")
+
+async def coletar_estatisticas_valorant(puuid):
+    """
+    Coleta e agrega estatísticas do jogador para o Ato atual.
+    Retorna um dicionário com: kd, hs_percent, win_percent, dmg_round, elo
+    """
+    mmr_v2 = await obter_mmr_v2(puuid)
+    partidas_v3 = await obter_partidas_v3(puuid)
+    
+    stats = {
+        "kd": 0.0,
+        "hs_percent": 0.0,
+        "win_percent": 0.0,
+        "dmg_round": 0.0,
+        "elo": "Unranked",
+        "elo_rank": 0,
+        "elo_url": None
+    }
+    
+    if mmr_v2 and 'data' in mmr_v2:
+        data = mmr_v2['data']
+        stats['elo'] = data.get('current_data', {}).get('currenttier_patched', 'Unranked')
+        stats['elo_rank'] = data.get('current_data', {}).get('currenttier', 0)
+        stats['elo_url'] = data.get('current_data', {}).get('images', {}).get('large')
+        
+        # Win Percent (Seasonal)
+        by_season = data.get('by_season', {})
+        if by_season:
+            for season_id, season_data in by_season.items():
+                if season_data.get('number_of_games', 0) > 0:
+                    wins = season_data.get('wins', 0)
+                    total = season_data.get('number_of_games', 1)
+                    stats['win_percent'] = (wins / total) * 100
+                    break
+
+    if partidas_v3 and 'data' in partidas_v3:
+        matches = partidas_v3['data']
+        total_kills = 0
+        total_deaths = 0
+        total_hs = 0
+        total_hits = 0
+        total_dmg = 0
+        total_rounds = 0
+        
+        for match in matches:
+            players = match.get('players', {}).get('all_players', [])
+            player_stats = None
+            for p in players:
+                if p['puuid'] == puuid:
+                    player_stats = p.get('stats', {})
+                    break
+            
+            if player_stats:
+                total_kills += player_stats.get('kills', 0)
+                total_deaths += player_stats.get('deaths', 0)
+                total_hs += player_stats.get('headshots', 0)
+                total_hits += player_stats.get('headshots', 0) + player_stats.get('bodyshots', 0) + player_stats.get('legshots', 0)
+                total_dmg += player_stats.get('damage_made', 0)
+                total_rounds += match.get('metadata', {}).get('rounds_played', 0)
+
+        if total_deaths > 0:
+            stats['kd'] = total_kills / total_deaths
+        else:
+            stats['kd'] = float(total_kills)
+            
+        if total_hits > 0:
+            stats['hs_percent'] = (total_hs / total_hits) * 100
+            
+        if total_rounds > 0:
+            stats['dmg_round'] = total_dmg / total_rounds
+            
+    return stats
 
 

@@ -391,6 +391,7 @@ async def pegar_status_jogador(discord_user_id: int):
     query = """
         SELECT 
             riot_game_name,
+            riot_puuid,
             total_punicoes,
             total_elogios,
             CASE WHEN mes_referencia = $2 THEN pontos_explanator ELSE 0 END as pontos_explanator,
@@ -406,6 +407,7 @@ async def pegar_status_jogador(discord_user_id: int):
         
     return {
         "nome_riot": registro["riot_game_name"],
+        "puuid": registro["riot_puuid"],
         "total_punicoes": registro["total_punicoes"],
         "total_elogios": registro["total_elogios"],
         "pontos_explanator": registro["pontos_explanator"],

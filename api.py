@@ -87,4 +87,18 @@ async def obter_mmr_jogador(puuid: str):
     
     print(f"⚠️ Erro ao buscar MMR atualizado")
     return None
+
+async def obter_mmr_v2(puuid: str):
+    """
+    Busca o MMR v2 que contém dados sazonais (vitórias, derrotas, etc).
+    """
+    url = f"https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/br/{puuid}"
+    return await _fazer_requisicao_get(url)
+
+async def obter_partidas_v3(puuid: str, modo='competitive'):
+    """
+    Busca o histórico de partidas v3 com detalhes para agregação de estatísticas.
+    """
+    url = f"https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/br/{puuid}?mode={modo}"
+    return await _fazer_requisicao_get(url)
     
