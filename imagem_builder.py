@@ -162,6 +162,121 @@ async def criar_imagem_comparacao(vencedor_url, perdedor_url, nome_vencedor, nom
     buffer.seek(0)
     return buffer
 
+async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor_nome, titulo="DUELO DE ESTATÍSTICAS"):
+    """
+    Cria uma tabela visual comparando estatísticas de dois jogadores. (Escalado em +150% para Máximo Impacto)
+    """
+    largura = 1500
+    altura_cabecalho = 550
+    altura_linha = 180
+    altura_total = altura_cabecalho + (len(categorias) * altura_linha) + 100
+    
+    fundo = Image.new('RGBA', (largura, altura_total), (10, 10, 10, 255))
+    draw = ImageDraw.Draw(fundo)
+    
+    try:
+        # Fontes em Escala Massiva
+        fonte_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 80)
+        fonte_nomes_win = ImageFont.truetype("LiberationSans-Bold.ttf", 60)
+        fonte_nomes_loss = ImageFont.truetype("LiberationSans-Bold.ttf", 40)
+        fonte_labels = ImageFont.truetype("LiberationSans-Bold.ttf", 45)
+        fonte_valores_win = ImageFont.truetype("LiberationSans-Bold.ttf", 65)
+        fonte_valores_loss = ImageFont.truetype("LiberationSans-Bold.ttf", 40)
+    except:
+        fonte_titulo = ImageFont.load_default()
+        fonte_nomes_win = ImageFont.load_default()
+        fonte_nomes_loss = ImageFont.load_default()
+        fonte_labels = ImageFont.load_default()
+        fonte_valores_win = ImageFont.load_default()
+        fonte_valores_loss = ImageFont.load_default()
+
+    # Título no topo
+    draw.text((largura // 2, 80), titulo, font=fonte_titulo, fill=(255, 255, 255), anchor="mm")
+
+    # --- CABEÇALHO ---
+    is_p1_vencedor = p1_data['nome'] == vencedor_nome
+    av1 = await baixar_imagem(p1_data['avatar_url'])
+    av2 = await baixar_imagem(p2_data['avatar_url'])
+
+    def paste_avatar(img, pos, size, winner=True):
+        if not img: return
+        img = img.resize((size, size))
+        if not winner:
+            img = img.convert("L").convert("RGBA")
+        mask = Image.new('L', (size, size), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, size, size), fill=255)
+        
+        borda_cor = (255, 215, 0) if winner else (100, 100, 100)
+        espessura = 15 if winner else 8
+        draw.ellipse((pos[0]-10, pos[1]-10, pos[0]+size+10, pos[1]+size+10), outline=borda_cor, width=espessura)
+        fundo.paste(img, pos, mask=mask)
+
+    # Avatares Massivos: Vencedor 350px, Perdedor 250px
+    paste_avatar(av1, (200 if is_p1_vencedor else 230, 150 if is_p1_vencedor else 180), 350 if is_p1_vencedor else 250, winner=is_p1_vencedor)
+    paste_avatar(av2, (largura - 550 if not is_p1_vencedor else largura - 520, 150 if not is_p1_vencedor else 180), 350 if not is_p1_vencedor else 250, winner=not is_p1_vencedor)
+
+    # Nomes
+    draw.text((375 if is_p1_vencedor else 355, 520), p1_data['nome'], font=fonte_nomes_win if is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if is_p1_vencedor else (150, 150, 150), anchor="mm")
+    draw.text((largura - 375 if not is_p1_vencedor else largura - 355, 520), p2_data['nome'], font=fonte_nomes_win if not is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if not is_p1_vencedor else (150, 150, 150), anchor="mm")
+
+    # VS Central
+    draw.text((largura // 2, 320), "VS", font=fonte_titulo, fill=(255, 50, 50), anchor="mm")
+
+    # --- TABELA DE ESTATÍSTICAS ---
+    y_atual = altura_cabecalho + 80
+    for cat in categorias:
+        idx = categorias.index(cat)
+        cor_linha = (25, 25, 25, 255) if idx % 2 == 0 else (18, 18, 18, 255)
+        draw.rectangle([80, y_atual, largura - 80, y_atual + altura_linha - 25], fill=cor_linha, outline=(70, 70, 70), width=2)
+        
+        # Categoria (Centro)
+        draw.text((largura // 2, y_atual + (altura_linha // 2) - 12), cat, font=fonte_labels, fill=(200, 200, 200), anchor="mm")
+        
+        v1_raw, win1, icon1 = p1_data['stats'].get(cat, ("-", False, None))
+        v2_raw, win2, icon2 = p2_data['stats'].get(cat, ("-", False, None))
+        
+        # Jogador 1 (Esquerda)
+        pos_x1 = 300
+        if icon1:
+            ico1 = await baixar_imagem(icon1)
+            if ico1:
+                size_ico = 130 if win1 else 90
+                ico1 = ico1.resize((size_ico, size_ico))
+                fundo.paste(ico1, (pos_x1 - (size_ico//2), y_atual + (altura_linha // 2) - (size_ico//2) - 10), mask=ico1)
+        else:
+            txt1 = str(v1_raw)
+            clr1 = (0, 255, 127) if win1 else (220, 80, 80)
+            draw.text((pos_x1, y_atual + (altura_linha // 2) - 12), txt1, font=fonte_valores_win if win1 else fonte_valores_loss, fill=clr1, anchor="mm")
+            if not win1 and win2: 
+                 draw.text((pos_x1 + 130, y_atual + (altura_linha // 2) - 12), "✘", font=fonte_labels, fill=(255, 0, 0), anchor="mm")
+
+        # Jogador 2 (Direita)
+        pos_x2 = largura - 300
+        if icon2:
+            ico2 = await baixar_imagem(icon2)
+            if ico2:
+                size_ico = 130 if win2 else 90
+                ico2 = ico2.resize((size_ico, size_ico))
+                fundo.paste(ico2, (pos_x2 - (size_ico//2), y_atual + (altura_linha // 2) - (size_ico//2) - 10), mask=ico2)
+        else:
+            txt2 = str(v2_raw)
+            clr2 = (0, 255, 127) if win2 else (220, 80, 80)
+            draw.text((pos_x2, y_atual + (altura_linha // 2) - 12), txt2, font=fonte_valores_win if win2 else fonte_valores_loss, fill=clr2, anchor="mm")
+            if not win2 and win1: 
+                 draw.text((pos_x2 - 130, y_atual + (altura_linha // 2) - 12), "✘", font=fonte_labels, fill=(255, 0, 0), anchor="mm")
+        
+        y_atual += altura_linha
+
+    buffer = io.BytesIO()
+    fundo.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+    buffer = io.BytesIO()
+    fundo.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
 async def criar_imagem_progresso_explanator(pontos, rank_atual, rank_anterior, rank_proximo, icon_atual_url, icon_anterior_url, icon_proximo_url):
     """
     Cria uma barra de progresso visual mostrando o quão longe o jogador está de subir ou descer de rank.
@@ -232,6 +347,78 @@ async def criar_imagem_progresso_explanator(pontos, rank_atual, rank_anterior, r
 
     # Texto de pontos
     draw.text((largura // 2, y_barra + 40), f"Pontos: {pontos} ({progresso_num}/3)", font=fonte_pequena, fill=(200, 200, 200), anchor="mm")
+
+    buffer = io.BytesIO()
+    fundo.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+async def criar_banner_status_valorant(nome, avatar_url, elo_nome, elo_icon_url, stats):
+    """
+    Cria um banner de status para o Valorant com estética premium (Vermelho/Branco/Preto).
+    stats: {'kd': float, 'hs': float, 'win': float, 'dmg': float}
+    """
+    largura = 700
+    altura = 350
+    fundo = Image.new('RGBA', (largura, altura), (10, 10, 10, 255))
+    draw = ImageDraw.Draw(fundo)
+    
+    try:
+        fonte_nome = ImageFont.truetype("LiberationSans-Bold.ttf", 36)
+        fonte_elo = ImageFont.truetype("LiberationSans-Bold.ttf", 26)
+        fonte_stats_label = ImageFont.truetype("LiberationSans-Bold.ttf", 16)
+        fonte_stats_val = ImageFont.truetype("LiberationSans-Bold.ttf", 34)
+    except:
+        fonte_nome = ImageFont.load_default()
+        fonte_elo = ImageFont.load_default()
+        fonte_stats_label = ImageFont.load_default()
+        fonte_stats_val = ImageFont.load_default()
+
+    # Detalhe visual lateral (Vermelho Valorant)
+    draw.rectangle([0, 0, 15, altura], fill=(253, 69, 86, 255))
+
+    # Avatar
+    av = await baixar_imagem(avatar_url)
+    if av:
+        av = av.resize((160, 160))
+        mask = Image.new('L', (160, 160), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, 160, 160), fill=255)
+        fundo.paste(av, (50, 50), mask=mask)
+        # Borda do avatar
+        draw.ellipse((45, 45, 215, 215), outline=(253, 69, 86), width=5)
+
+    # Nome do Jogador
+    draw.text((240, 60), nome, font=fonte_nome, fill=(255, 255, 255))
+
+    # Elo Icon e Nome
+    elo_ico = await baixar_imagem(elo_icon_url)
+    if elo_ico:
+        elo_ico = elo_ico.resize((90, 90))
+        fundo.paste(elo_ico, (240, 110), mask=elo_ico)
+        draw.text((345, 155), elo_nome, font=fonte_elo, fill=(253, 69, 86), anchor="lm")
+
+    # Linha divisória
+    draw.line([240, 220, largura - 40, 220], fill=(50, 50, 50), width=2)
+
+    # Estatísticas (Grid horizontal)
+    x_stats = 60
+    y_stats = 250
+    espacamento_x = 160
+    
+    stats_list = [
+        ("K/D RATIO", f"{stats['kd']:.2f}"),
+        ("% HS", f"{stats['hs']:.1f}%"),
+        ("% WINRATE", f"{stats['win']:.1f}%"),
+        ("DMG/ROUND", f"{stats['dmg']:.1f}")
+    ]
+
+    for i, (label, val) in enumerate(stats_list):
+        curr_x = x_stats + (i * espacamento_x)
+        
+        # Label
+        draw.text((curr_x, y_stats), label, font=fonte_stats_label, fill=(150, 150, 150))
+        # Valor
+        draw.text((curr_x, y_stats + 30), val, font=fonte_stats_val, fill=(255, 255, 255))
 
     buffer = io.BytesIO()
     fundo.save(buffer, format="PNG")
