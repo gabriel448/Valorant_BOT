@@ -616,13 +616,32 @@ async def coletar_estatisticas_valorant(puuid):
     
     if mmr_v2 and 'data' in mmr_v2:
         data = mmr_v2['data']
-        stats['elo'] = data.get('current_data', {}).get('currenttier_patched', 'Unranked')
-        stats['elo_rank'] = data.get('current_data', {}).get('currenttier', 0)
-        stats['elo_url'] = data.get('current_data', {}).get('images', {}).get('large')
+        current_data = data.get('current_data', {})
+        stats['elo'] = current_data.get('currenttier_patched', 'Unranked')
+        stats['elo_rank'] = current_data.get('currenttier', 0)
+        stats['elo_url'] = current_data.get('images', {}).get('large')
+        
+        # Correção: Se o elo vier como Unranked mas houver um ID de rank, mapeamos manualmente
+        if stats['elo'] == 'Unranked' and stats['elo_rank'] > 0:
+            rank_nomes = [
+                "Unranked", "Unranked", "Unranked", 
+                "Iron 1", "Iron 2", "Iron 3",
+                "Bronze 1", "Bronze 2", "Bronze 3",
+                "Silver 1", "Silver 2", "Silver 3",
+                "Gold 1", "Gold 2", "Gold 3",
+                "Platinum 1", "Platinum 2", "Platinum 3",
+                "Diamond 1", "Diamond 2", "Diamond 3",
+                "Ascendant 1", "Ascendant 2", "Ascendant 3",
+                "Immortal 1", "Immortal 2", "Immortal 3",
+                "Radiant"
+            ]
+            if stats['elo_rank'] < len(rank_nomes):
+                stats['elo'] = rank_nomes[stats['elo_rank']]
         
         # Win Percent (Seasonal)
         by_season = data.get('by_season', {})
         if by_season:
+            # Pegar a temporada mais recente que tenha jogos
             for season_id, season_data in by_season.items():
                 if season_data.get('number_of_games', 0) > 0:
                     wins = season_data.get('wins', 0)
@@ -641,18 +660,23 @@ async def coletar_estatisticas_valorant(puuid):
         
         for match in matches:
             players = match.get('players', {}).get('all_players', [])
-            player_stats = None
+            p_obj = None
             for p in players:
                 if p['puuid'] == puuid:
-                    player_stats = p.get('stats', {})
+                    p_obj = p
                     break
             
-            if player_stats:
+            if p_obj:
+                player_stats = p_obj.get('stats', {})
                 total_kills += player_stats.get('kills', 0)
                 total_deaths += player_stats.get('deaths', 0)
                 total_hs += player_stats.get('headshots', 0)
                 total_hits += player_stats.get('headshots', 0) + player_stats.get('bodyshots', 0) + player_stats.get('legshots', 0)
-                total_dmg += player_stats.get('damage_made', 0)
+                
+                # CORREÇÃO: damage_made fica no objeto do jogador, não dentro de stats
+                total_dmg += p_obj.get('damage_made', 0)
+                
+                # Somar rounds do metadado da partida
                 total_rounds += match.get('metadata', {}).get('rounds_played', 0)
 
         if total_deaths > 0:
