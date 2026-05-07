@@ -812,15 +812,15 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # Montar Embed
         embed = discord.Embed(
-            title="⚔️ TRIBUNAL: DUELO DE STATUS ⚔️",
-            description=f"Estatisticamente, **{vencedor.display_name}** é superior e menos bagre que **{perdedor.display_name}**.",
+            title="⚔️ DUELO EXPLANATOR ⚔️",
+            description=f"Estatisticamente, **{vencedor.display_name}** é o vencedor!",
             color=0x8A2BE2
         )
         
         arquivo = discord.File(fp=imagem_final, filename="duelo.png")
         embed.set_image(url="attachment://duelo.png")
         embed.set_footer(text=f"Comparação gerada pelo Explanator | ID: {interaction.user.id}")
-
+        
         await interaction.followup.send(file=arquivo, embed=embed)
 
     # ----- STATUS VALORANT -----
@@ -854,6 +854,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             stats_data
         )
         
+        # Montar Embed
         embed = discord.Embed(
             title=f"🎮 Status Valorant: {status['nome_riot']}",
             description=f"Estatísticas competitivas extraídas das suas últimas partidas.",

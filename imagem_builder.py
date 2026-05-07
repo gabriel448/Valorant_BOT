@@ -178,17 +178,18 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
         # Fontes em Escala Massiva
         fonte_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 80)
         fonte_nomes_win = ImageFont.truetype("LiberationSans-Bold.ttf", 60)
-        fonte_nomes_loss = ImageFont.truetype("LiberationSans-Bold.ttf", 40)
+        fonte_nomes_loss = ImageFont.truetype("LiberationSans-Bold.ttf", 50)
         fonte_labels = ImageFont.truetype("LiberationSans-Bold.ttf", 45)
+        # Ambos com 65px, mudando apenas o peso (Bold vs Regular)
         fonte_valores_win = ImageFont.truetype("LiberationSans-Bold.ttf", 65)
-        fonte_valores_loss = ImageFont.truetype("LiberationSans-Bold.ttf", 40)
+        fonte_valores_reg = ImageFont.truetype("LiberationSans-Regular.ttf", 65)
     except:
         fonte_titulo = ImageFont.load_default()
         fonte_nomes_win = ImageFont.load_default()
         fonte_nomes_loss = ImageFont.load_default()
         fonte_labels = ImageFont.load_default()
         fonte_valores_win = ImageFont.load_default()
-        fonte_valores_loss = ImageFont.load_default()
+        fonte_valores_reg = ImageFont.load_default()
 
     # Título no topo
     draw.text((largura // 2, 80), titulo, font=fonte_titulo, fill=(255, 255, 255), anchor="mm")
@@ -211,19 +212,30 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
         draw.ellipse((pos[0]-10, pos[1]-10, pos[0]+size+10, pos[1]+size+10), outline=borda_cor, width=espessura)
         fundo.paste(img, pos, mask=mask)
 
-    # Avatares Massivos: Vencedor 350px, Perdedor 250px
-    paste_avatar(av1, (200 if is_p1_vencedor else 230, 150 if is_p1_vencedor else 180), 350 if is_p1_vencedor else 250, winner=is_p1_vencedor)
-    paste_avatar(av2, (largura - 550 if not is_p1_vencedor else largura - 520, 150 if not is_p1_vencedor else 180), 350 if not is_p1_vencedor else 250, winner=not is_p1_vencedor)
+    # Posicionamento Centralizado nas Metades (Esquerda: 375, Direita: 1125)
+    x_centro_p1 = 375
+    x_centro_p2 = 1125
+    y_avatares = 160
+    
+    # Avatares: Vencedor 350px, Perdedor 250px
+    size1 = 350 if is_p1_vencedor else 250
+    size2 = 350 if not is_p1_vencedor else 250
+    
+    paste_avatar(av1, (x_centro_p1 - (size1 // 2), y_avatares + (175 - (size1 // 2))), size1, winner=is_p1_vencedor)
+    paste_avatar(av2, (x_centro_p2 - (size2 // 2), y_avatares + (175 - (size2 // 2))), size2, winner=not is_p1_vencedor)
 
-    # Nomes
-    draw.text((375 if is_p1_vencedor else 355, 520), p1_data['nome'], font=fonte_nomes_win if is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if is_p1_vencedor else (150, 150, 150), anchor="mm")
-    draw.text((largura - 375 if not is_p1_vencedor else largura - 355, 520), p2_data['nome'], font=fonte_nomes_win if not is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if not is_p1_vencedor else (150, 150, 150), anchor="mm")
+    # Nomes com folga abaixo dos avatares (y=580) para não ficar "na frente"
+    draw.text((x_centro_p1, 580), p1_data['nome'], font=fonte_nomes_win if is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if is_p1_vencedor else (180, 180, 180), anchor="mm")
+    draw.text((x_centro_p2, 580), p2_data['nome'], font=fonte_nomes_win if not is_p1_vencedor else fonte_nomes_loss, fill=(255, 215, 0) if not is_p1_vencedor else (180, 180, 180), anchor="mm")
 
     # VS Central
-    draw.text((largura // 2, 320), "VS", font=fonte_titulo, fill=(255, 50, 50), anchor="mm")
+    draw.text((largura // 2, 340), "VS", font=fonte_titulo, fill=(255, 50, 50), anchor="mm")
 
     # --- TABELA DE ESTATÍSTICAS ---
-    y_atual = altura_cabecalho + 80
+    # Ajustar altura do cabeçalho final para a tabela começar depois dos nomes
+    altura_cabecalho_real = 650
+    y_atual = altura_cabecalho_real
+    
     for cat in categorias:
         idx = categorias.index(cat)
         cor_linha = (25, 25, 25, 255) if idx % 2 == 0 else (18, 18, 18, 255)
@@ -240,30 +252,28 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
         if icon1:
             ico1 = await baixar_imagem(icon1)
             if ico1:
-                size_ico = 130 if win1 else 90
+                size_ico = 130 # Tamanho igual para ícones
                 ico1 = ico1.resize((size_ico, size_ico))
                 fundo.paste(ico1, (pos_x1 - (size_ico//2), y_atual + (altura_linha // 2) - (size_ico//2) - 10), mask=ico1)
         else:
             txt1 = str(v1_raw)
             clr1 = (0, 255, 127) if win1 else (220, 80, 80)
-            draw.text((pos_x1, y_atual + (altura_linha // 2) - 12), txt1, font=fonte_valores_win if win1 else fonte_valores_loss, fill=clr1, anchor="mm")
-            if not win1 and win2: 
-                 draw.text((pos_x1 + 130, y_atual + (altura_linha // 2) - 12), "✘", font=fonte_labels, fill=(255, 0, 0), anchor="mm")
+            fnt1 = fonte_valores_win if win1 else fonte_valores_reg
+            draw.text((pos_x1, y_atual + (altura_linha // 2) - 12), txt1, font=fnt1, fill=clr1, anchor="mm")
 
         # Jogador 2 (Direita)
         pos_x2 = largura - 300
         if icon2:
             ico2 = await baixar_imagem(icon2)
             if ico2:
-                size_ico = 130 if win2 else 90
+                size_ico = 130
                 ico2 = ico2.resize((size_ico, size_ico))
                 fundo.paste(ico2, (pos_x2 - (size_ico//2), y_atual + (altura_linha // 2) - (size_ico//2) - 10), mask=ico2)
         else:
             txt2 = str(v2_raw)
             clr2 = (0, 255, 127) if win2 else (220, 80, 80)
-            draw.text((pos_x2, y_atual + (altura_linha // 2) - 12), txt2, font=fonte_valores_win if win2 else fonte_valores_loss, fill=clr2, anchor="mm")
-            if not win2 and win1: 
-                 draw.text((pos_x2 - 130, y_atual + (altura_linha // 2) - 12), "✘", font=fonte_labels, fill=(255, 0, 0), anchor="mm")
+            fnt2 = fonte_valores_win if win2 else fonte_valores_reg
+            draw.text((pos_x2, y_atual + (altura_linha // 2) - 12), txt2, font=fnt2, fill=clr2, anchor="mm")
         
         y_atual += altura_linha
 
