@@ -96,6 +96,72 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
     
     return buffer
 
+async def criar_imagem_comparacao(vencedor_url, perdedor_url, nome_vencedor, nome_perdedor):
+    """
+    Cria uma imagem de 'versus' ou superioridade entre dois jogadores.
+    """
+    largura = 800
+    altura = 400
+    
+    fundo = Image.new('RGBA', (largura, altura), (15, 15, 15, 255))
+    draw = ImageDraw.Draw(fundo)
+    
+    try:
+        fonte_vitoria = ImageFont.truetype("LiberationSans-Bold.ttf", 40)
+        fonte_vs = ImageFont.truetype("LiberationSans-Bold.ttf", 60)
+        fonte_nomes = ImageFont.truetype("LiberationSans-Regular.ttf", 25)
+    except:
+        fonte_vitoria = ImageFont.load_default()
+        fonte_vs = ImageFont.load_default()
+        fonte_nomes = ImageFont.load_default()
+
+    # Baixar Avatares
+    img_vencedor = await baixar_imagem(vencedor_url) if vencedor_url else None
+    img_perdedor = await baixar_imagem(perdedor_url) if perdedor_url else None
+
+    # Desenhar Círculos/Fundos para os avatares
+    # Vencedor (Esquerda)
+    if img_vencedor:
+        img_vencedor = img_vencedor.resize((200, 200))
+        # Criar máscara circular
+        mask = Image.new('L', (200, 200), 0)
+        draw_mask = ImageDraw.Draw(mask)
+        draw_mask.ellipse((0, 0, 200, 200), fill=255)
+        
+        # Borda dourada para o vencedor
+        draw.ellipse((45, 95, 255, 305), outline=(255, 215, 0), width=8)
+        fundo.paste(img_vencedor, (50, 100), mask=mask)
+        draw.text((150, 330), nome_vencedor, font=fonte_nomes, fill=(255, 255, 255), anchor="mm")
+        draw.text((150, 70), "O MAIOR", font=fonte_vitoria, fill=(255, 215, 0), anchor="mm")
+
+    # Texto VS no meio
+    draw.text((largura // 2, altura // 2), "VS", font=fonte_vs, fill=(200, 0, 0), anchor="mm")
+
+    # Perdedor (Direita) - Menor e talvez preto e branco?
+    if img_perdedor:
+        img_perdedor = img_perdedor.resize((140, 140))
+        # Converte para preto e branco para simbolizar a derrota/inferioridade no explanator
+        img_perdedor = img_perdedor.convert("L").convert("RGBA")
+        
+        mask_p = Image.new('L', (140, 140), 0)
+        draw_mask_p = ImageDraw.Draw(mask_p)
+        draw_mask_p.ellipse((0, 0, 140, 140), fill=255)
+        
+        # Borda cinza
+        draw.ellipse((largura - 215, 125, largura - 65, 275), outline=(100, 100, 100), width=4)
+        fundo.paste(img_perdedor, (largura - 210, 130), mask=mask_p)
+        draw.text((largura - 140, 300), nome_perdedor, font=fonte_nomes, fill=(150, 150, 150), anchor="mm")
+        draw.text((largura - 140, 100), "O BAGRE", font=fonte_nomes, fill=(150, 150, 150), anchor="mm")
+
+    # Linhas de efeito
+    draw.line((largura // 2, 50, largura // 2, 120), fill=(100, 100, 100), width=2)
+    draw.line((largura // 2, 280, largura // 2, 350), fill=(100, 100, 100), width=2)
+
+    buffer = io.BytesIO()
+    fundo.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
 async def criar_imagem_progresso_explanator(pontos, rank_atual, rank_anterior, rank_proximo, icon_atual_url, icon_anterior_url, icon_proximo_url):
     """
     Cria uma barra de progresso visual mostrando o quão longe o jogador está de subir ou descer de rank.

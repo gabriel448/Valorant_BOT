@@ -9,7 +9,7 @@ from utils import gerar_embed
 from api import obter_puuid_henrik
 from database import DATABASE_URL,pegar_cargo_servidor, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
 from utils import enviar_aviso_md3, calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo, ELOS_EXPLANATOR
-from imagem_builder import criar_imagem_leaderboard, criar_imagem_progresso_explanator
+from imagem_builder import criar_imagem_leaderboard, criar_imagem_progresso_explanator, criar_imagem_comparacao
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -720,6 +720,90 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         embed.set_footer(text=f"ID: {usuario.id} | Explanator")
 
+        await interaction.followup.send(file=arquivo, embed=embed)
+
+    # ----- COMPARAR STATUS -----
+    @tree.command(name="comparar-status-explanator", description="Compara o status de dois jogadores e decide quem é o maior bagre.")
+    @app_commands.describe(jogador1="Primeiro jogador", jogador2="Segundo jogador")
+    async def comparar_status(interaction: discord.Interaction, jogador1: discord.Member, jogador2: discord.Member):
+        await interaction.response.defer()
+        
+        status1 = await pegar_status_jogador(jogador1.id)
+        status2 = await pegar_status_jogador(jogador2.id)
+
+        if not status1 or not status2:
+            await interaction.followup.send("❌ Um ou ambos os jogadores não possuem ficha criminal no Explanator.")
+            return
+
+        # Dados Jogador 1
+        p1_pontos = status1["pontos_explanator"]
+        p1_punicoes = status1["total_punicoes"]
+        p1_elogios = status1["total_elogios"]
+        p1_pe = p1_punicoes / p1_elogios if p1_elogios > 0 else float(p1_punicoes)
+        
+        # Dados Jogador 2
+        p2_pontos = status2["pontos_explanator"]
+        p2_punicoes = status2["total_punicoes"]
+        p2_elogios = status2["total_elogios"]
+        p2_pe = p2_punicoes / p2_elogios if p2_elogios > 0 else float(p2_punicoes)
+
+        # Lógica de Comparação (Quem é MELHOR? No explanator, menos pontos = melhor)
+        vitorias_p1 = 0
+        vitorias_p2 = 0
+        
+        # Elo (Menos pontos = melhor)
+        if p1_pontos < p2_pontos: vitorias_p1 += 1
+        elif p2_pontos < p1_pontos: vitorias_p2 += 1
+        
+        # Punições (Menos = melhor)
+        if p1_punicoes < p2_punicoes: vitorias_p1 += 1
+        elif p2_punicoes < p1_punicoes: vitorias_p2 += 1
+        
+        # Elogios (Mais = melhor)
+        if p1_elogios > p2_elogios: vitorias_p1 += 1
+        elif p2_elogios > p1_elogios: vitorias_p2 += 1
+        
+        # P/E Ratio (Menos = melhor)
+        if p1_pe < p2_pe: vitorias_p1 += 1
+        elif p2_pe < p1_pe: vitorias_p2 += 1
+
+        # Decidir Vencedor (Menos bagre)
+        vencedor = jogador1 if vitorias_p1 >= vitorias_p2 else jogador2
+        perdedor = jogador2 if vencedor == jogador1 else jogador1
+        
+        # Criar Imagem
+        vencedor_url = vencedor.avatar.url if vencedor.avatar else vencedor.default_avatar.url
+        perdedor_url = perdedor.avatar.url if perdedor.avatar else perdedor.default_avatar.url
+        
+        imagem_final = await criar_imagem_comparacao(
+            str(vencedor_url), 
+            str(perdedor_url), 
+            vencedor.display_name, 
+            perdedor.display_name
+        )
+        
+        # Montar Embed
+        embed = discord.Embed(
+            title="⚔️ TRIBUNAL: DUELO DE STATUS ⚔️",
+            description=f"Comparação estatística entre {jogador1.mention} e {jogador2.mention}.",
+            color=0xFFD700 # Dourado
+        )
+        
+        def emoji_vitoria(val1, val2, inverter=False):
+            if val1 == val2: return "⚪"
+            if inverter:
+                return "✅" if val1 < val2 else "❌"
+            return "✅" if val1 > val2 else "❌"
+
+        embed.add_field(name="📊 Categorias", value="Elo (Pontos)\nPunições\nElogios\nTaxa P/E", inline=True)
+        embed.add_field(name=f"👤 {jogador1.display_name}", value=f"{p1_pontos} {emoji_vitoria(p1_pontos, p2_pontos, True)}\n{p1_punicoes} {emoji_vitoria(p1_punicoes, p2_punicoes, True)}\n{p1_elogios} {emoji_vitoria(p1_elogios, p2_elogios)}\n{p1_pe:.2f} {emoji_vitoria(p1_pe, p2_pe, True)}", inline=True)
+        embed.add_field(name=f"👤 {jogador2.display_name}", value=f"{p2_pontos} {emoji_vitoria(p2_pontos, p1_pontos, True)}\n{p2_punicoes} {emoji_vitoria(p2_punicoes, p1_punicoes, True)}\n{p2_elogios} {emoji_vitoria(p2_elogios, p1_elogios)}\n{p2_pe:.2f} {emoji_vitoria(p2_pe, p1_pe, True)}", inline=True)
+
+        embed.add_field(name="🏆 VEREDITO", value=f"Estatisticamente, **{vencedor.display_name}** é superior e menos bagre que **{perdedor.display_name}**.", inline=False)
+        
+        arquivo = discord.File(fp=imagem_final, filename="duelo.png")
+        embed.set_image(url="attachment://duelo.png")
+        
         await interaction.followup.send(file=arquivo, embed=embed)
     
     @tree.command(name="condicoes", description="Mostra o livro de regras oficial do Explanator.")
