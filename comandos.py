@@ -310,25 +310,31 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         
         # montando o embed
         embed = discord.Embed(
-            title="💌 CORREIO ELEGANTE DO EXPLANATOR",
-            description="O Explanator agora permite fofoca, covardia e declarações de amor não correspondidas. Foi adicionado um novo comando para você se comunicar no servidor sem revelar sua identidade.",
-            color=0x8A2BE2 # Roxo (Cor de mistério)
+            title="✨ MEGA ATUALIZAÇÃO VISUAL",
+            description="O Explanator acaba de receber um upgrade massivo em sua engine visual. Agora, seus status e duelos são entregues em banners de alta definição!",
+            color=0xFD4556 # Vermelho Valorant
         )
 
         embed.add_field(
-            name="❓ Como funciona:", 
-            value="Digite o comando `/mensagem-anonima`, selecione a vítima (destinatário) e escreva o seu texto. O bot vai entregar a mensagem no chat público de forma anônima.", 
+            name="🎮 Novos Comandos de Status", 
+            value=(
+                "**`/status-valorant`**: Agora gera um banner estilizado com suas estatísticas competitivas reais (K/D, HS%, Winrate e Dano/Round).\n"
+                "**`/comparar-status-valorant`**: Desafie um amigo para um duelo visual de estatísticas reais do Valorant."
+            ), 
             inline=False
         )
 
         embed.add_field(
-            name="⚠️ O Aviso de Segurança", 
-            value="O servidor nunca saberá quem mandou a mensagem... Mas lembre-se: Deus ta vendo. Usem com sabedoria.", 
+            name="⚔️ Duelos de Bagres", 
+            value=(
+                "**`/comparar-status-explanator`**: Compare seu ranking no bot com seus amigos em um banner de duelo.\n"
+                "**Visual Pro**: O vencedor do duelo é destacado, enquanto o perdedor fica em Preto e Branco!"
+            ), 
             inline=False
         )
 
         embed.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
-        embed.set_footer(text="O comando ja esta ativo. Pode testar.")
+        embed.set_footer(text="Acesse /help para ver a lista completa de comandos. | Tribunal 2.0")
 
         # Dispara pra todos os servidores cadastrados
         canais = await pegar_todos_canais_configurados()
