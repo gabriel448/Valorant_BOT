@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 import asyncio
 
-from persona import instrucoes_comentarista, instrucoes_elogio, instrucoes_leves, instrucoes_toxicas, instrucoes_respostas
+from persona import instrucoes_comentarista, instrucoes_elogio, instrucoes_leves, instrucoes_toxicas, instrucoes_respostas, secao_girias_negativas, secao_girias_positivas
+import random
 
 def pegar_entre(texto, inicio, fim):
     """
@@ -59,7 +60,12 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
     else:
         instrucao_escolhida = instrucoes_leves
     
+    # 50% de chance de incluir as gírias do momento (Moggado, Resenhou, Cringe)
+    if modo_ia != 3 and random.random() < 0.5:
+        instrucao_escolhida += secao_girias_negativas
+
     # Montando o prompt com labels claros para evitar confusão entre Agente e Mapa
+
     prompt = (
         f"DADOS DA PARTIDA ANALISADA:\n"
         f"---------------------------\n"
@@ -112,7 +118,14 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
     """
     Gera um texto exclusivo de elogio com IA (Grok) e RETORNA uma str
     """
+    instrucao_escolhida = instrucoes_elogio
+    
+    # 50% de chance de incluir as gírias do momento (Moggou, Based, etc)
+    if random.random() < 0.5:
+        instrucao_escolhida += secao_girias_positivas
+
     prompt = (
+
         f"DADOS DA VITÓRIA:\n"
         f"---------------------------\n"
         f"JOGADOR: {nome_jogador}\n"
@@ -131,11 +144,12 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
         resposta = await cliente_grok.chat.completions.create(
             model="grok-4-1-fast-non-reasoning", 
             messages=[
-                {"role": "system", "content": instrucoes_elogio},
+                {"role": "system", "content": instrucao_escolhida},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7
         )
+
         return resposta.choices[0].message.content.strip()
     except Exception as e:
         print(f"Erro na geração do elogio (Grok): {e}")
