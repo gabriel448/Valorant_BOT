@@ -58,30 +58,50 @@ async def gerar_humilhacao(nome_jogador, agente, mapa, motivos, modo_ia=2):
         instrucao_escolhida = instrucoes_comentarista
     else:
         instrucao_escolhida = instrucoes_leves
-    #Montando o prompt
-    prompt = f"Dados do desastre:\nJogador: {nome_jogador}\nAgente: {agente}\nMapa: {mapa}\nCrimes cometidos:\n"
+    
+    # Montando o prompt com labels claros para evitar confusão entre Agente e Mapa
+    prompt = (
+        f"DADOS DA PARTIDA ANALISADA:\n"
+        f"---------------------------\n"
+        f"JOGADOR: {nome_jogador}\n"
+        f"PERSONAGEM (AGENTE): {agente}\n"
+        f"LOCAL (MAPA): {mapa}\n"
+        f"---------------------------\n"
+        f"CRIMES E ESTATÍSTICAS:\n"
+    )
+    
     for motivo in motivos:
         if 'K/D' in motivo:
-            kd = pegar_entre(motivo, '(',')')
-            kills, deaths, assists = kd.split('/')
-            if int(kills) < int(deaths):
-                prompt += f"- {motivo} NEGATIVO\n"
-            elif int(kills) == int(deaths):
-                prompt += f"- {motivo} FICOU NEUTRO\n"
+            kd = pegar_entre(motivo, '(', ')')
+            if kd:
+                kills, deaths, assists = kd.split('/')
+                status_kd = "NEGATIVO" if int(kills) < int(deaths) else "POSITIVO/NEUTRO"
+                prompt += f"- {motivo} [STATUS: {status_kd}]\n"
             else:
-                prompt += f"- {motivo} FICOU POSITIVO PELO MENOS\n"
+                prompt += f"- {motivo}\n"
             continue
+        
+        if 'CAIU DE ELO' in motivo:
+            prompt += f"- {motivo} [STATUS: REBAIXAMENTO TÉCNICO]\n"
+            continue
+            
+        if 'PEITO' in motivo:
+            prompt += f"- {motivo} [STATUS: FALHA DE PRECISÃO]\n"
+            continue
+
         prompt += f"- {motivo}\n"
-    prompt += "\nGere a mensagem de humilhação agora com base nesses dados"
+
+    
+    prompt += "\nINSTRUÇÃO FINAL: Gere a mensagem agora baseando-se RIGOROSAMENTE nos dados acima."
 
     try:
         resposta = await cliente_grok.chat.completions.create(
-            model="grok-4-1-fast-non-reasoning", # Você pode usar "grok-2-latest" também
+            model="grok-4-1-fast-non-reasoning", 
             messages=[
                 {"role": "system", "content": instrucao_escolhida},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.85 # 1 deixa o bot bem criativo e sarcástico
+            temperature=0.8
         )
         return resposta.choices[0].message.content.strip()
     except Exception as e:
@@ -92,10 +112,20 @@ async def gerar_elogio(nome_jogador, agente, mapa, motivos):
     """
     Gera um texto exclusivo de elogio com IA (Grok) e RETORNA uma str
     """
-    prompt = f"O jogador {nome_jogador} jogou de {agente} no mapa {mapa} e amassou a partida. Olha os feitos:\n"
+    prompt = (
+        f"DADOS DA VITÓRIA:\n"
+        f"---------------------------\n"
+        f"JOGADOR: {nome_jogador}\n"
+        f"PERSONAGEM (AGENTE): {agente}\n"
+        f"LOCAL (MAPA): {mapa}\n"
+        f"---------------------------\n"
+        f"FEITOS DO MONSTRO:\n"
+    )
+    
     for motivo in motivos:
         prompt += f"- {motivo}\n"
-    prompt += "\nGere a mensagem de exaltação agora com base nesses dados."
+    
+    prompt += "\nINSTRUÇÃO FINAL: Gere a mensagem de exaltação agora baseando-se nos dados acima."
 
     try:
         resposta = await cliente_grok.chat.completions.create(
@@ -149,6 +179,6 @@ async def testar_ia(modo, modo2):
 if __name__ == "__main__":
     import asyncio
     # 1. (1 = humilhacao ; 2 = elogio ; 3 = resposta)
-    #2. MODO 1 == (1 = toxico; 2 = leve; 3 = comentarista)
-    #3. MODO 3 == (1 = punicao; 2 = elogio)
-    asyncio.run(testar_ia(3, 1))
+    # 2. MODO 1 == (1 = toxico; 2 = leve; 3 = comentarista)
+    # 3. MODO 3 == (1 = punicao; 2 = elogio)
+    asyncio.run(testar_ia(1, 1))
