@@ -19,3 +19,5 @@ teste.py
 
 # Claude Code (worktrees e configurações locais)
 .claude/
+
+chave-explanator.ppk
