@@ -20,4 +20,11 @@ teste.py
 # Claude Code (worktrees e configurações locais)
 .claude/
 
+# Skills instaladas via npx skills add
+.agents/
+
 chave-explanator.ppk
+
+skills-lock.json
+
+discord_icon/

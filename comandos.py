@@ -441,9 +441,9 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
 
     # ----- MODO DA IA -----
     @tree.command(name="modo-ia", description="[ADMIN] Define a personalidade da IA neste servidor.")
-    @app_commands.describe(nivel="Escolha o nível de toxicidade")
+    @app_commands.describe(nivel="Escolha o nível de intensidade")
     @app_commands.choices(nivel=[
-        app_commands.Choice(name="1 - Tóxico / Pesado ", value=1),
+        app_commands.Choice(name="1 - Intenso / Pesado", value=1),
         app_commands.Choice(name="2 - Leve / Family Friendly", value=2),
         app_commands.Choice(name="3 - Comentarista / Analítico", value=3)
     ])
@@ -460,7 +460,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         if sucesso:
             tipo = ''
             if valor_escolhido == 1:
-                tipo = "TÓXICO ☢️"
+                tipo = "INTENSO ☢️"
             elif valor_escolhido == 3:
                 tipo = "COMENTARISTA 🎙️"
             else:
@@ -554,7 +554,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             {"nome": "🗑️ `/remover-alvo [riot_id]`", "desc": "Deleta a existência de um jogador do banco de dados. Você só pode remover a si mesmo (Administradores podem remover qualquer um)."},
             {"nome": "📢 `/ativar-esse-canal`", "desc": "[Admin] Trava o bot para enviar mensagens, alertas e imagens exclusivamente no canal de texto onde o comando foi digitado."},
             {"nome": "🔔 `/ativar-esse-cargo [cargo]`", "desc": "[Admin] Escolhe qual cargo do servidor será mencionado (pingado) nos alertas do bot. Precisa configurar o canal primeiro."},
-            {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Tóxico (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
+            {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Intenso (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
             {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
             {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
             {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor."},
