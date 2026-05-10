@@ -16,3 +16,6 @@ __pycache__/
 
 database_password.txt
 teste.py
+
+# Claude Code (worktrees e configurações locais)
+.claude/
