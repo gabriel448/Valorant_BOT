@@ -579,6 +579,25 @@ code {
 .footer-link:hover { color: #fff; }
 .footer-sep { color: var(--border); font-size: 0.8rem; }
 
+/* === AUTORIZAR PAGE === */
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: start;
+  max-width: 960px;
+}
+
+@media (max-width: 700px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .page-hero {
+    padding: 100px 24px 56px;
+  }
+}
+
 /* === PRIVACY DOC === */
 .privacy-doc {
   max-width: 760px;
