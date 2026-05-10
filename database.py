@@ -1,6 +1,8 @@
 import asyncpg
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+
 
 #carregando a url do .env
 load_dotenv()
@@ -23,7 +25,13 @@ async def iniciar_banco():
         riot_tag_line VARCHAR(5) NOT NULL,
         last_match_id VARCHAR(64) NULL,
         current_tier_int INTEGER DEFAULT 0,
-        loss_streak INTEGER DEFAULT 0
+        loss_streak INTEGER DEFAULT 0,
+        pontos_explanator INTEGER DEFAULT 0,
+        alertas_md3 INTEGER DEFAULT 0,
+        mes_referencia VARCHAR(7) DEFAULT '1970-01',
+        total_punicoes INTEGER DEFAULT 0,
+        total_elogios INTEGER DEFAULT 0,
+        punicoes_md3 INTEGER DEFAULT 0
     );
     """
 
@@ -32,7 +40,8 @@ async def iniciar_banco():
     CREATE TABLE IF NOT EXISTS configuracoes_servidor (
         guild_id BIGINT PRIMARY KEY,
         alert_channel_id BIGINT NOT NULL,
-        alert_role_id BIGINT NULL
+        alert_role_id BIGINT NULL,
+        modo_ia INTEGER DEFAULT 2
     );
     """
 
@@ -52,6 +61,17 @@ async def iniciar_banco():
     await conn.execute(query_associacao)
     print("Tabela de associacao criada/checada com sucesso")
     print("Estrutura Relacional (3 Tabelas) criada com sucesso!")
+
+    try:
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN punicoes_md3 INTEGER DEFAULT 0;")
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN elogios_md3 INTEGER DEFAULT 0;")
+    except asyncpg.exceptions.DuplicateColumnError:
+        pass
+
+    try:
+        await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN win_streak INTEGER DEFAULT 0;")
+    except asyncpg.exceptions.DuplicateColumnError:
+        pass
 
     #fecha a conexao apos a config
     await conn.close()
@@ -167,13 +187,22 @@ async def atualizar_loss_streak(riot_puuid, novo_streak):
     await conn.execute(query, novo_streak, riot_puuid)
     await conn.close()
 
-async def pegar_todos_canais_configurados():
-    """Busca o ID de todos os canais de alerta de todos os servidores."""
+async def atualizar_win_streak(riot_puuid, novo_streak):
+    """"
+    atualiza a contagem de vitorias seguidas do jogador
+    """
     conn = await asyncpg.connect(DATABASE_URL)
-    registros = await conn.fetch("SELECT alert_channel_id FROM configuracoes_servidor")
+    query = "UPDATE jogadores_monitorados SET win_streak = $1 WHERE riot_puuid = $2"
+    await conn.execute(query, novo_streak, riot_puuid)
+    await conn.close()
+
+async def pegar_todos_canais_configurados():
+    """Busca o ID de todos os canais de alerta e cargos configurados de todos os servidores."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    registros = await conn.fetch("SELECT alert_channel_id, alert_role_id FROM configuracoes_servidor")
     await conn.close()
     
-    return [registro['alert_channel_id'] for registro in registros]
+    return registros
 
 async def configurar_cargo_alerta(guild_id, role_id):
     """Atualiza o cargo do servidor. Retorna True se atualizou, False se o servidor não existir."""
@@ -243,3 +272,186 @@ async def pegar_dono_do_alvo(nome: str, tag: str):
     await conn.close()
     
     return registro['discord_user_id'] if registro else None
+
+async def alterar_pontos_explanator(puuid: str, qtd_punicoes: int, qtd_elogios: int):
+    """
+    Motor da MD3. Retorna um dicionário se a MD3 for concluída nesta exata chamada.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    
+    # 1. Qual é o mês atual? (ex: "2026-04")
+    mes_atual = datetime.now().strftime("%Y-%m")
+    
+    # 2. Pega os dados atuais do jogador
+    query_busca = "SELECT pontos_explanator, alertas_md3, mes_referencia, punicoes_md3, elogios_md3 FROM jogadores_monitorados WHERE riot_puuid = $1"
+    registro = await conn.fetchrow(query_busca, puuid)
+    
+    if not registro:
+        await conn.close()
+        print('Erro na busca no data base')
+        return
+
+    pontos = registro['pontos_explanator']
+    alertas_md3 = registro['alertas_md3']
+    mes_banco = registro['mes_referencia']
+    punicoes_md3 = registro['punicoes_md3']
+    elogios_md3 = registro['elogios_md3']
+    resultado_md3 = None
+    
+    # 3. LAZY RESET (Começo do mês)
+    if mes_banco != mes_atual:
+        pontos = 0
+        alertas_md3 = 0
+        
+    # 4. FASE DE MD3
+    if alertas_md3 < 3:
+        # A cada aviso na MD3, os motivos valem MUITO mais pontos. Ex: peso 6.
+        # Se ele cometeu 3 crimes num jogo só, ele ganha 18 pontos de uma vez!
+        pontos += (qtd_punicoes * 9)
+        pontos -= (qtd_elogios * 3)
+        
+        punicoes_md3 += qtd_punicoes
+        elogios_md3 += qtd_elogios
+
+        alertas_md3 += 1
+        
+        # FINALIZOU A MD3! Aplicar os limites (Clamp)
+        if alertas_md3 == 3:
+            if pontos > 53: pontos = 53 # Teto: Diamante 3
+            if pontos < 6: pontos = 6   # Piso: Ferro 3
+
+            # Prepara o pacote de dados para enviar ao Main.py
+            resultado_md3 = {
+                "pontos_finais": pontos,
+                "punicoes": punicoes_md3,
+                "elogios": elogios_md3
+            }
+            
+            punicoes_md3 = 0
+            elogios_md3 = 0
+    
+    # 5. TEMPORADA REGULAR (Já fez a MD3)
+    else:
+        # Aqui o peso volta ao normal (+1 por crime, -1 por elogio)
+        pontos += qtd_punicoes
+        pontos -= qtd_elogios
+        
+        # Travas de segurança padrão (0 a 74)
+        if pontos > 74: pontos = 74
+        if pontos < 0: pontos = 0
+
+    # 6. Salva tudo no banco
+    query_update = """
+        UPDATE jogadores_monitorados 
+        SET pontos_explanator = $1, alertas_md3 = $2, mes_referencia = $3,
+            total_punicoes = total_punicoes + $4, total_elogios = total_elogios + $5,
+            punicoes_md3 = $6, elogios_md3 = $7
+        WHERE riot_puuid = $8;
+    """
+    await conn.execute(query_update, pontos, alertas_md3, mes_atual, qtd_punicoes, qtd_elogios, punicoes_md3, elogios_md3, puuid)
+    await conn.close()
+
+    return resultado_md3
+
+async def pegar_top_bagres(guild_id: int):
+    """
+    Busca os 10 jogadores com mais pontos no Explanator dentro de um servidor específico.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    mes_atual = datetime.now().strftime("%Y-%m")
+
+    query = """
+        WITH ranking_resetado AS (
+            SELECT 
+                j.riot_game_name, 
+                j.riot_tag_line, 
+                j.riot_puuid,
+                CASE WHEN j.mes_referencia = $2 THEN j.pontos_explanator ELSE 0 END as pontos_explanator,
+                CASE WHEN j.mes_referencia = $2 THEN j.alertas_md3 ELSE 0 END as alertas_md3
+            FROM jogadores_monitorados j
+            INNER JOIN jogadores_servidores js ON j.discord_user_id = js.discord_user_id
+            WHERE js.guild_id = $1
+        )
+        SELECT * FROM ranking_resetado 
+        ORDER BY pontos_explanator DESC 
+        LIMIT 5;
+    """
+
+    registros = await conn.fetch(query, guild_id, mes_atual)
+    await conn.close()
+    return registros
+
+async def pegar_status_jogador(discord_user_id: int):
+    """
+    Retorna o Dicionário de Perfil do Jogador, aplicando o reset virtual no mês.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    mes_atual = datetime.now().strftime("%Y-%m")
+    
+    query = """
+        SELECT 
+            riot_game_name,
+            riot_puuid,
+            total_punicoes,
+            total_elogios,
+            CASE WHEN mes_referencia = $2 THEN pontos_explanator ELSE 0 END as pontos_explanator,
+            CASE WHEN mes_referencia = $2 THEN alertas_md3 ELSE 0 END as alertas_md3
+        FROM jogadores_monitorados
+        WHERE discord_user_id = $1;
+    """
+    registro = await conn.fetchrow(query, discord_user_id, mes_atual)
+    await conn.close()
+    
+    if not registro:
+        return None
+        
+    return {
+        "nome_riot": registro["riot_game_name"],
+        "puuid": registro["riot_puuid"],
+        "total_punicoes": registro["total_punicoes"],
+        "total_elogios": registro["total_elogios"],
+        "pontos_explanator": registro["pontos_explanator"],
+        "alertas_md3": registro["alertas_md3"]
+    }
+
+async def limpar_dados_servidor(guild_id: int):
+    """
+    Remove todos os rastros de um servidor e limpa jogadores órfãos.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    
+    try:
+        # Deleta o canal e cargo configurados para aquele servidor
+        await conn.execute("DELETE FROM configuracoes_servidor WHERE guild_id = $1", guild_id)
+        
+        # Rompe o vínculo de todos os jogadores com aquele servidor
+        await conn.execute("DELETE FROM jogadores_servidores WHERE guild_id = $1", guild_id)
+        
+        
+        # Delete todo jogador cujo ID não exista mais na tabela de vínculos
+        query_orfaos = """
+            DELETE FROM jogadores_monitorados 
+            WHERE discord_user_id NOT IN (SELECT discord_user_id FROM jogadores_servidores);
+        """
+        status_orfaos = await conn.execute(query_orfaos)
+        
+        print(f"Limpeza do servidor {guild_id} concluída. {status_orfaos} (jogadores órfãos removidos).")
+        
+    except Exception as e:
+        print(f"Erro ao limpar dados do servidor {guild_id}: {e}")
+    finally:
+        await conn.close()
+
+async def pegar_cargo_servidor(guild_id: int):
+    """
+    Busca o ID do cargo configurado para alertas em um servidor específico.
+    Retorna o ID numérico ou None se não houver cargo configurado.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = "SELECT alert_role_id FROM configuracoes_servidor WHERE guild_id = $1"
+    registro = await conn.fetchrow(query, guild_id)
+    await conn.close()
+    
+    if registro and registro['alert_role_id']:
+        return registro['alert_role_id']
+    return None

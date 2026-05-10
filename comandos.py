@@ -1,0 +1,1031 @@
+import discord
+from discord import app_commands
+import aiohttp
+import os
+from io import StringIO
+import asyncpg
+
+from utils import gerar_embed
+from api import obter_puuid_henrik
+from database import DATABASE_URL,pegar_cargo_servidor, pegar_canais_e_cargos_do_jogador, cadastrar_alvo_bd, pegar_status_jogador,  configurar_canal_alerta, pegar_todos_canais_configurados, configurar_cargo_alerta, pegar_dono_do_alvo, remover_alvo_bd, configurar_modo_ia,pegar_top_bagres
+from utils import enviar_aviso_md3, calcular_elo_explanator, pegar_temporada_atual, pegar_url_elo, ELOS_EXPLANATOR, coletar_estatisticas_valorant
+from imagem_builder import criar_imagem_leaderboard, criar_imagem_progresso_explanator, criar_imagem_comparacao, criar_imagem_tabela_comparativa, criar_banner_status_valorant
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class MenuMotivos(discord.ui.Select):
+        def __init__(self, tipo_aviso, jogador, agente, mapa, client):
+            self.tipo_aviso = tipo_aviso
+            self.jogador = jogador
+            self.agente = agente
+            self.mapa = mapa
+            self.client = client
+            
+            # Define as "Checkboxes" (Opções do Menu) dependendo do tipo
+            opcoes = []
+            if tipo_aviso == 'punicao':
+                opcoes = [
+                    discord.SelectOption(label="Caiu de Elo", description="Simula a queda para o Prata 1", value="caiu"),
+                    discord.SelectOption(label="Zero Kills", description="Jogou 13 rounds e não matou ninguém", value="zero"),
+                    discord.SelectOption(label="K/D Horrível", description="Simula um K/D de 0.2", value="kd"),
+                    discord.SelectOption(label="Loss Streak", description="Simula 5 derrotas seguidas", value="streak"),
+                    discord.SelectOption(label="Só atira no peito", description="Simula 85% de bodyshot", value="peito")
+                ]
+            else:
+                opcoes = [
+                    discord.SelectOption(label="Subiu de Elo", description="Simula a subida para o Diamante 1", value="subiu"),
+                    discord.SelectOption(label="Amasou o Lobby (MVP)", description="Simula K/D 2.5 com 25 kills", value="mvp")
+                ]
+
+            # max_values permite selecionar vários motivos ao mesmo tempo
+            super().__init__(placeholder="Selecione os motivos (pode marcar vários)...", min_values=1, max_values=len(opcoes), options=opcoes)
+
+        async def callback(self, interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
+            
+            # 1. Preparando as listas de motivos baseadas nas escolhas
+            motivos = []
+            motivos_IA = []
+            rank_up = False
+            
+            # Valores falsos genéricos para preencher o visual
+            kills, deaths, assists = 5, 20, 2
+            
+            if self.tipo_aviso == 'punicao':
+                if "caiu" in self.values:
+                    motivos.append("Caiu pro Prata 1 kkk")
+                    motivos_IA.append("CAIU DE ELO, AGORA O JOGADOR ESTA Prata 1")
+                if "zero" in self.values:
+                    motivos.append("jogou 13 rounds e fez ZERO abates.")
+                    motivos_IA.append("JOGADOR JOGOU 13 E FEZ ZERO ABATES")
+                    kills = 0
+                if "kd" in self.values:
+                    motivos.append("K/D de 0.25 (5/20/2).")
+                    motivos_IA.append("K/D de 0.25 (5/20/2). JOGADOR OBTEVE UM PESSIMO KD NESSA PARTIDA")
+                if "streak" in self.values:
+                    motivos.append("5 derrotas seguidas e contando")
+                    motivos_IA.append("JOGADOR CHEGOU NA SEQUENCIA DE 5 DERRTOAS SEGUIDAS")
+                if "peito" in self.values:
+                    motivos.append("**85.0%** dos tiros foi no peito")
+                    motivos_IA.append("**85.0%** DOS TIROS DADOS PELO JOGADOR NESSA PARTIDA ACERTARAM O PEITO DOS INIMIGOS, ELE NAO SABE MIRAR NA CABECA")
+            else:
+                kills, deaths, assists = 25, 10, 5
+                if "subiu" in self.values:
+                    motivos.append("subiu pro Diamante 1")
+                    motivos_IA.append("JOGADOR SUBIU DE ELO, AGORA ESTA NO ELO Diamante 1")
+                    rank_up = True
+                if "mvp" in self.values:
+                    motivos.append("K/D de 2.50 (25/10/5).")
+                    motivos_IA.append("K/D de 2.50 (25/10/5). JOGADOR OBTEVE UM OTIMO KD NESSA PARTIDA, NAO FOI CARREGADO")
+
+            temporada_atual = await pegar_temporada_atual()
+            elo_imagem = pegar_url_elo(18, temporada_atual)
+
+            # 2. Criando o "Objeto Falso" (Mock) idêntico ao que o seu loop geraria
+            dados_envio_falso = {
+                'punicao': {'punitivo': self.tipo_aviso == 'punicao', 'motivos_punicao': motivos, 'motivos_punicao_IA': motivos_IA},
+                'elogio': {'merece_elogio': self.tipo_aviso == 'elogio', 'motivos_elogio': motivos, 'motivos_elogio_IA': motivos_IA, 'rank_up': rank_up},
+                'dados_embed': {
+                    'nome_agente': self.agente,
+                    'mapa': self.mapa,
+                    'foto_agente': "https://media.valorant-api.com/agents/320b2a48-4d9b-a075-30f1-1f93a9b638fa/displayicon.png", # Imagem Sova
+                    'banner_jogador': "https://media.valorant-api.com/playercards/fc209787-414b-10d0-dcac-048323c8f59b/wideart.png",
+                    'elo_imagem': elo_imagem # Imagem dima 1
+                },
+                'dados_jogador': {'kills': kills, 'deaths': deaths, 'assists': assists},
+                'nome_jogador': self.jogador,
+                'client': self.client,
+                'destinos': [], 
+                'discord_id': interaction.user.id
+            }
+
+            # 3. Formata os motivos em string usando seu padrão
+            msg = StringIO()
+            for m in motivos:
+                msg.write(f"- {m}\n")
+
+            # 4. Chama a função real de gerar o Embed e aciona a IA
+            modo_teste = 1 if self.tipo_aviso == 'punicao' else 'elogio'
+            embed_gerado = await gerar_embed(dados_envio_falso, modo_teste, msg)
+
+            # 5. Envia o resultado APENAS para você ver
+            await interaction.followup.send(content="🔧 **Resultado do Teste:**", embed=embed_gerado, ephemeral=True)
+
+
+class ViewTestes(discord.ui.View):
+    def __init__(self, tipo_aviso, jogador, agente, mapa, client):
+        super().__init__(timeout=60)
+        self.add_item(MenuMotivos(tipo_aviso, jogador, agente, mapa, client))
+
+class PaginacaoHelp(discord.ui.View):
+    def __init__(self, embed_guia, embeds_paginas):
+        super().__init__(timeout=180) # Os botões param de funcionar após 3 minutos para não pesar a memória
+        self.embed_guia = embed_guia
+        self.embeds_paginas = embeds_paginas
+        self.pagina_atual = 0
+
+    # Botão Voltar
+    @discord.ui.button(label="◀️ Anterior", style=discord.ButtonStyle.secondary, disabled=True)
+    async def botao_anterior(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.pagina_atual -= 1
+        await self.atualizar_mensagem(interaction)
+
+    # Botão Avançar
+    @discord.ui.button(label="Próximo ▶️", style=discord.ButtonStyle.primary)
+    async def botao_proximo(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.pagina_atual += 1
+        await self.atualizar_mensagem(interaction)
+
+    async def atualizar_mensagem(self, interaction: discord.Interaction):
+        # Desativa o botão "Anterior" se estiver na primeira página
+        self.children[0].disabled = (self.pagina_atual == 0)
+        # Desativa o botão "Próximo" se estiver na última página
+        self.children[1].disabled = (self.pagina_atual == len(self.embeds_paginas) - 1)
+        
+        # Edita a mensagem mantendo o Guia Fixo e trocando só a página de comandos
+        await interaction.response.edit_message(
+            embeds=[self.embed_guia, self.embeds_paginas[self.pagina_atual]], 
+            view=self
+        )
+
+class ViewRegras(discord.ui.View):
+    def __init__(self, embed_punicoes, embed_elogios):
+        super().__init__(timeout=180) # Timeout de 3 minutos
+        self.embed_punicoes = embed_punicoes
+        self.embed_elogios = embed_elogios
+
+    # Botão de Punições (Começa desativado pois é a primeira tela)
+    @discord.ui.button(label="🚨 Punições", style=discord.ButtonStyle.danger, disabled=True)
+    async def btn_punicoes(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Desativa a si mesmo e ativa o outro botão
+        self.children[0].disabled = True
+        self.children[1].disabled = False
+        await interaction.response.edit_message(embed=self.embed_punicoes, view=self)
+
+    # Botão de Elogios
+    @discord.ui.button(label="🌟 Elogios", style=discord.ButtonStyle.success, disabled=False)
+    async def btn_elogios(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Ativa o botão de punições e desativa a si mesmo
+        self.children[0].disabled = False
+        self.children[1].disabled = True
+        await interaction.response.edit_message(embed=self.embed_elogios, view=self)
+
+
+HENRIK_API_KEY = os.getenv('HENRIK_API_KEY')
+MEU_ID_DISCORD = int(os.getenv('MEU_ID_DISCORD'))
+def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, cache_partidas):
+
+    # ----- NOTIFICACAO DE TESTE -----
+    @tree.command(name="notificacao-teste", description="[DEV] Gera um alerta de teste (ninguém mais vê).")
+    @app_commands.choices(tipo_teste=[
+        app_commands.Choice(name="Punição", value="punicao"),
+        app_commands.Choice(name="Elogio", value="elogio"),
+        app_commands.Choice(name="Aviso de MD3", value="fim_md3")
+    ])
+    async def notificacao_teste_cmd(
+        interaction: discord.Interaction, 
+        tipo_teste: app_commands.Choice[str], 
+        jogador: str, 
+        agente: str, 
+        mapa: str,
+        punicoes_md3: int = 0,
+        elogios_md3: int = 0,
+        pontos_finais: int = 0
+    ):
+        
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Acesso Negado.", ephemeral=True)
+            return
+
+        # --- TESTE DE FIM DE MD3 ---
+        if tipo_teste.value == "fim_md3":
+            await interaction.response.defer(ephemeral=True)
+            
+            # 1. Prepara os dados falsos de MD3
+            dados_md3_teste = {
+                "pontos_finais": pontos_finais,
+                "punicoes": punicoes_md3,
+                "elogios": elogios_md3
+            }
+            
+            # 2. Busca onde o dev (você) está cadastrado para enviar o teste
+            
+            conn = await asyncpg.connect(DATABASE_URL)
+            config = await conn.fetchrow(
+                "SELECT alert_role_id FROM configuracoes_servidor WHERE guild_id = $1", 
+                interaction.guild.id
+            )
+            await conn.close()
+            
+            # Define o destino apenas como o canal atual
+            id_cargo = config['alert_role_id'] if config else None
+            destinos_unicos = [{'canal': interaction.channel.id, 'cargo': id_cargo}]
+            
+            if not destinos_unicos:
+                await interaction.followup.send("⚠️ Você não está cadastrado como alvo em nenhum servidor para receber o teste.")
+                return
+
+            # 3. Dispara a função real de envio
+            await enviar_aviso_md3(client, destinos_unicos, interaction.user.id, jogador, dados_md3_teste)
+            
+            await interaction.followup.send(f"✅ Teste de Fim de MD3 enviado em <#{interaction.channel.id}>!", ephemeral=True)
+
+        # --- PUNIÇÃO E ELOGIO ---
+        else:
+            view = ViewTestes(tipo_teste.value, jogador, agente, mapa, client)
+            await interaction.response.send_message(
+                f"🛠️ **Painel de Teste:** Configure os motivos para **{jogador}**.", 
+                view=view, 
+                ephemeral=True
+            )
+
+    # ----- CADASTRAR ALVO -----
+    @tree.command(name="cadastrar-alvo", description="Cadastra um amigo para o monitoramento de baitamento no Valorant.")
+    async def cadastrar_alvo(interaction: discord.Interaction, baiter: discord.Member, riot_id: str):
+    
+        await interaction.response.defer()
+        
+        try:
+            nome, tag = riot_id.split('#')
+        except ValueError:
+            await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
+            return
+
+        # Vamos buscar o tal do PUUID na API
+        puuid = await obter_puuid_henrik(nome, tag)
+        
+        if not puuid:
+            await interaction.followup.send(f"❌ Não consegui achar o jogador **{riot_id}** na API do Valorant. Tem certeza que escreveu certo?")
+            return
+            
+        # Se achou na API, salva no banco de dados
+        await cadastrar_alvo_bd(
+            discord_user_id=baiter.id, 
+            guild_id=interaction.guild.id, 
+            riot_puuid=puuid, 
+            riot_game_name=nome, 
+            riot_tag_line=tag,
+        )
+        
+        await interaction.followup.send(f"🎯 **baiter na mira** O jogador {baiter.mention} ({riot_id}) foi cadastrado com o PUUID e será monitorado neste canal.")
+
+
+    # ----- ATIVAR O CHAT DE TEXTO -----
+    @tree.command(name="ativar-esse-canal", description="[ADMIN] Define este canal como o oficial para os Alertas de Bagre.")
+    @app_commands.checks.has_permissions(administrator=True) #so adms
+    async def ativar_esse_canal(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        #pega o ID do server
+        id_servidor = interaction.guild.id
+        id_canal = interaction.channel.id
+
+        #salva no banco de dados
+        await configurar_canal_alerta(id_servidor, id_canal)
+
+        await interaction.followup.send(f"✅ **Canal Configurado!** O Explanator agora enviará os alertas de exclusivamente neste canal: <#{id_canal}>.")
+    @ativar_esse_canal.error
+    async def ativar_esse_canal_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO: {error}")
+
+    
+    # ----- PATCH NOTES -----
+    @tree.command(name="patch-notes", description="[DEV] Dispara o anúncio de atualização para todos os servidores.")
+    async def patch_notes(interaction: discord.Interaction):
+        # Só eu posso rodar isso
+        
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Apenas o desenvolvedor supremo pode usar este comando.", ephemeral=True)
+            return
+
+        # Avisa ao Discord que o bot está "pensando"
+        await interaction.response.defer(ephemeral=True)
+        
+        # montando o embed
+        embed = discord.Embed(
+            title="✨ MEGA ATUALIZAÇÃO VISUAL",
+            description="O Explanator acaba de receber um upgrade massivo em sua engine visual. Agora, seus status e duelos são entregues em banners de alta definição!",
+            color=0xFD4556 # Vermelho Valorant
+        )
+
+        embed.add_field(
+            name="🎮 Novos Comandos de Status", 
+            value=(
+                "**`/status-valorant`**: Agora gera um banner estilizado com suas estatísticas competitivas reais (K/D, HS%, Winrate e Dano/Round).\n"
+                "**`/comparar-status-valorant`**: Desafie um amigo para um duelo visual de estatísticas reais do Valorant."
+            ), 
+            inline=False
+        )
+
+        embed.add_field(
+            name="⚔️ Duelos de Bagres", 
+            value=(
+                "**`/comparar-status-explanator`**: Compare seu ranking no bot com seus amigos em um banner de duelo.\n"
+                "**Visual Pro**: O vencedor do duelo é destacado, enquanto o perdedor fica em Preto e Branco!"
+            ), 
+            inline=False
+        )
+
+        embed.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+        embed.set_footer(text="Acesse /help para ver a lista completa de comandos. | Tribunal 2.0")
+
+        # Dispara pra todos os servidores cadastrados
+        canais = await pegar_todos_canais_configurados()
+        enviados = 0
+        
+        for canal in canais:
+            try:
+                id_canal = canal['alert_channel_id']
+                id_cargo = canal['alert_role_id']
+                canal = await client.fetch_channel(int(id_canal))
+
+                conteudo_mensagem = ""
+                if id_cargo:
+                    conteudo_mensagem = f"<@&{id_cargo}>"
+
+                await canal.send(content=conteudo_mensagem, embed=embed)
+                enviados += 1
+            except discord.errors.NotFound:
+                print(f"Canal {id_canal} não encontrado.")
+            except discord.errors.Forbidden:
+                print(f"Sem permissão no canal {id_canal}.")
+                
+        # Confirmação apenas para você
+        await interaction.followup.send(f"✅ Patch Notes da MD3 disparado com sucesso para {enviados} servidores!")
+    
+
+    # ----- CADASTRAR CARGO -----
+    @tree.command(name="ativar-esse-cargo", description="[ADMIN] Define qual cargo será marcado nos avisos.")
+    @app_commands.describe(cargo="Selecione o cargo para ser marcado")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def ativar_esse_cargo(interaction: discord.Interaction, cargo: discord.Role):
+        await interaction.response.defer()
+
+        id_servidor = interaction.guild.id
+        id_cargo = cargo.id
+        
+        sucesso = await configurar_cargo_alerta(id_servidor, id_cargo)
+        
+        if sucesso:
+            await interaction.followup.send(f"✅ **cargo configurado** O bot agora vai marcar o cargo {cargo.mention} nos alertas de bagre deste servidor.")
+        else:
+            await interaction.followup.send("❌ **Calma lá!** Você precisa configurar o canal primeiro usando `/ativar-esse-canal` antes de tentar definir um cargo.")
+            print("Erro: Canal não estava configurado.")
+    
+    @ativar_esse_cargo.error
+    async def ativar_esse_cargo_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Você não tem permissão para isso!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Você não tem permissão para isso!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO: {error}")
+    
+
+    # ----- REMOVER ALVO -----
+    @tree.command(name='remover-alvo', description="Remove um jogador do monitoramento do Tribunal." )
+    @app_commands.describe(riot_id="O Riot ID do jogador (ex: Sacy#BR1)")
+    async def remover_alvo(interaction: discord.Interaction, riot_id: str):
+        #evitando timeout
+        await interaction.response.defer()
+
+        try:
+            nome, tag = riot_id.split('#')
+        except ValueError:
+            await interaction.followup.send("⚠️ Formato inválido! Você precisa usar Nome#Tag (ex: Sacy#BR1).")
+            return
+        
+        dono_id = await pegar_dono_do_alvo(nome, tag)
+
+        if not dono_id:
+            await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados.", ephemeral=True)
+            return
+        
+        # Verifica se a pessoa executando o comando é Administradora do servidor
+        eh_admin = interaction.user.guild_permissions.administrator
+
+        # Verifica se a pessoa executando o comando é a mesma que foi cadastrada no banco
+        eh_o_dono = (interaction.user.id == dono_id)
+
+        if not (eh_admin or eh_o_dono):
+            await interaction.followup.send("❌ **Acesso Negado!** Você só pode remover a SUA PRÓPRIA conta do monitoramento (ou pedir para um Administrador fazer isso).", ephemeral=True)
+            return
+        #apaga do banco
+        sucesso = await remover_alvo_bd(nome, tag)
+
+        if sucesso:
+            quem_removeu = "O administrador" if eh_admin and not eh_o_dono else "O próprio jogador"
+            await interaction.followup.send(f"✅ **Alvo Abortado!** {quem_removeu} removeu os registros de **{riot_id}**. Ele não será mais explanado.")
+            print(f"Jogador {riot_id} deletado do banco por {interaction.user.name}.")
+        else:
+            await interaction.followup.send(f"❌ Não encontrei nenhum jogador com o Riot ID **{riot_id}** no banco de dados. Tem certeza que o nome e a tag estão certos?", ephemeral=True)
+
+    @remover_alvo.error
+    async def remover_alvo_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Somente administradores podem perdoar um bagre e remover ele do sistema!", ephemeral=True)
+        else:
+            print(f"🚨 ERRO NO COMANDO DE REMOVER: {error}")
+    
+
+    # ----- MODO DA IA -----
+    @tree.command(name="modo-ia", description="[ADMIN] Define a personalidade da IA neste servidor.")
+    @app_commands.describe(nivel="Escolha o nível de toxicidade")
+    @app_commands.choices(nivel=[
+        app_commands.Choice(name="1 - Tóxico / Pesado ", value=1),
+        app_commands.Choice(name="2 - Leve / Family Friendly", value=2),
+        app_commands.Choice(name="3 - Comentarista / Analítico", value=3)
+    ])
+    @app_commands.checks.has_permissions(administrator=True)
+    async def modo_ia_cmd(interaction: discord.Interaction, nivel: app_commands.Choice[int]):
+        #evitando o timeout
+        await interaction.response.defer()
+
+        id_servidor = interaction.guild.id
+        valor_escolhido = nivel.value
+
+        sucesso = await configurar_modo_ia(id_servidor,valor_escolhido)
+
+        if sucesso:
+            tipo = ''
+            if valor_escolhido == 1:
+                tipo = "TÓXICO ☢️"
+            elif valor_escolhido == 3:
+                tipo = "COMENTARISTA 🎙️"
+            else:
+                tipo = "LEVE 🕊️"
+            await interaction.followup.send(f"✅ **Modo alterado!** A IA neste servidor agora operará no modo **{tipo}**.")
+        else:
+            await interaction.followup.send("❌ Você precisa configurar o `/ativar-esse-canal` primeiro!")
+
+    
+    # ----- TABELA DE LIDERANCA -----
+    @tree.command(name="top-explanados", description="Exibe o ranking dos maiores bagres deste servidor (Rank Explanator).")
+    async def top_bagres(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # 1. Busca os dados no banco
+        top_jogadores = await pegar_top_bagres(interaction.guild.id)
+        
+        if not top_jogadores:
+            await interaction.followup.send("📭 Nenhum jogador cadastrado neste servidor ainda.")
+            return
+
+        lista_para_imagem = []
+        
+        temporada_atual = await pegar_temporada_atual()
+        
+        # 2. Prepara os dados e busca assets (Banner e Ícone do Anti-Rank)
+        for jogador in top_jogadores:
+            puuid = jogador['riot_puuid']
+            pontos = jogador['pontos_explanator']
+            alertas_md3 = jogador['alertas_md3']
+            nome_completo = f"{jogador['riot_game_name']}"
+            
+            # Calcula o rank do Explanator
+            rank_nome = calcular_elo_explanator(pontos, alertas_md3)
+            
+            # Buscamos o Banner atual do jogador na API do Henrik
+            # Usamos o endpoint de conta para pegar o banner (card)
+            url_conta = f"https://api.henrikdev.xyz/valorant/v1/by-puuid/account/{puuid}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url_conta, headers={"Authorization": HENRIK_API_KEY}) as resp:
+                    banner_url = "https://media.valorant-api.com/playercards/fc209787-414b-10d0-dcac-048323c8f59b/wideart.png" # Banner padrão caso falhe
+                    if resp.status == 200:
+                        dados = await resp.json()
+                        banner_url = dados['data']['card']['wide']
+
+            # Mapeamento simples de Rank para ID de ícone (valorant-api.com)
+            # O índice do rank (pontos // 3) + 3 costuma bater com os IDs da API (Ferro 1 = 3, etc)
+            if alertas_md3 < 3:
+                icon_url = pegar_url_elo(0, temporada_atual)
+            else:
+                indice_api = (pontos // 3) + 3 
+                if indice_api > 27: indice_api = 27 
+                icon_url = pegar_url_elo(indice_api, temporada_atual)
+            
+            lista_para_imagem.append({
+                'nome': nome_completo,
+                'rank': rank_nome,
+                'banner_url': banner_url,
+                'icon_url': icon_url
+            })
+
+        # 3. Chama o construtor de imagem que você definiu
+        try:
+            imagem_final = await criar_imagem_leaderboard(lista_para_imagem, titulo=f"RANKING EXPLANATOR - {interaction.guild.name}")
+            
+            # 4. Envia o arquivo para o Discord
+            arquivo = discord.File(fp=imagem_final, filename="leaderboard.png")
+            await interaction.followup.send(content="🏆 **TABELA DOS BAGRES:**", file=arquivo)
+        except Exception as e:
+            print(f"Erro ao gerar imagem: {e}")
+            await interaction.followup.send("❌ Tive um problema técnico ao pintar o quadro dos bagres.")
+
+    # ----- HELP -----
+    @tree.command(name="help", description="Guia de iniciação e lista de comandos do Explanator.")
+    async def help_cmd(interaction: discord.Interaction):
+        
+        # 1. EMBED FIXO (Get Started)
+        embed_guia = discord.Embed(
+            title="🚀 PRIMEIROS PASSOS",
+            description="Acabou de convidar o Explanator? Siga a ordem abaixo para o bot começar a monitorar os jogadores do servidor:",
+            color=0xFFD700 # Dourado
+        )
+        embed_guia.add_field(name="1️⃣ Configure o Canal (Obrigatório)", value="Use `/ativar-esse-canal` no chat onde você quer que o bot envie as notificações.", inline=False)
+        embed_guia.add_field(name="2️⃣ Configure o Cargo (Opcional)", value="Quer que todo mundo seja pingado quando alguém for explanado? Use `/ativar-esse-cargo` e marque o cargo da galera do Explanator.", inline=False)
+        embed_guia.add_field(name="3️⃣ Cadastre o jogador", value="Use `/cadastrar-alvo` marcando o seu amigo e passando o Riot ID dele (ex: Sacy#BR1). A partir desse momento, ele será monitorado 24h por dia.", inline=False)
+        embed_guia.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        # 2. LISTA DE COMANDOS (Banco de dados de textos)
+        comandos_info = [
+            {"nome": "🎯 `/cadastrar-alvo [usuario] [riot_id]`", "desc": "Coloca um jogador na mira do Explanator. Toda vez que ele terminar uma partida, a IA vai julgar o desempenho dele."},
+            {"nome": "🗑️ `/remover-alvo [riot_id]`", "desc": "Deleta a existência de um jogador do banco de dados. Você só pode remover a si mesmo (Administradores podem remover qualquer um)."},
+            {"nome": "📢 `/ativar-esse-canal`", "desc": "[Admin] Trava o bot para enviar mensagens, alertas e imagens exclusivamente no canal de texto onde o comando foi digitado."},
+            {"nome": "🔔 `/ativar-esse-cargo [cargo]`", "desc": "[Admin] Escolhe qual cargo do servidor será mencionado (pingado) nos alertas do bot. Precisa configurar o canal primeiro."},
+            {"nome": "🧠 `/modo-ia [nivel]`", "desc": "[Admin] Altera a personalidade do narrador. Escolha entre Tóxico (pesado), Leve (sem palavrões) ou Comentarista (auto explicativo)."},
+            {"nome": "📉 `/top-explanados`", "desc": "Gera a Parede da Vergonha! Uma imagem com o ranking dos maiores bagres do servidor, ordenado por quem tem mais pontos de punição."},
+            {"nome": "❓ `/help`", "desc": "Mostra este menu de ajuda que você está lendo agora mesmo."},
+            {"nome": "✉️ `/convite`", "desc": "Link para adicionar o bot ao seu servidor."},
+            {"nome": "📉 `/status-explanator [usuario]`", "desc": "Mostra o Rank Explanator, punições, elogios e a barra de progresso de um jogador."},
+            {"nome": "⚔️ `/comparar-status-explanator [u1] [u2]`", "desc": "Duelo de Bagres! Compara quem é o pior jogador no ranking do Explanator."},
+            {"nome": "🎮 `/status-valorant [usuario]`", "desc": "Estatísticas reais (K/D, HS%, Win%) baseadas em suas **últimas partidas** (não o Ato inteiro)."},
+            {"nome": "🆚 `/comparar-status-valorant [u1] [u2]`", "desc": "Compara o desempenho competitivo real entre dois jogadores com base nas **últimas partidas**."},
+            {"nome": "⚖️ `/condicoes`", "desc": "Mostra as condições de elogio e punição."},
+            {"nome": "💌 `/mensagem-anonima`", "desc": "Manda uma mensagem anônima pro bot mandar no chat configurado."}
+        ]
+
+        # 3. FATIADOR DE PÁGINAS (4 comandos por página)
+        embeds_paginas = []
+        comandos_por_pagina = 4
+        
+        # Um pequeno truque de matemática para criar blocos de 4 em 4
+        for i in range(0, len(comandos_info), comandos_por_pagina):
+            pagina = comandos_info[i:i + comandos_por_pagina]
+            
+            embed_pagina = discord.Embed(
+                title=f"📚 Manual de Comandos (Página {len(embeds_paginas) + 1})",
+                color=0x00BFFF # Azul
+            )
+            
+            for cmd in pagina:
+                embed_pagina.add_field(name=cmd["nome"], value=cmd["desc"], inline=False)
+                
+            embed_pagina.set_footer(text="Use os botões abaixo para navegar.")
+            embeds_paginas.append(embed_pagina)
+
+        # 4. ENVIA A MENSAGEM COM OS BOTÕES
+        # Passamos o Guia e a lista de Páginas para a nossa classe gerenciadora
+        view_paginacao = PaginacaoHelp(embed_guia, embeds_paginas)
+        
+        await interaction.response.send_message(
+            embeds=[embed_guia, embeds_paginas[0]], 
+            view=view_paginacao
+        )
+    
+    # ----- COMANDO CONVITE (PROVISÓRIO) -----
+    @tree.command(name="convite", description="Receba o link para adicionar o Explanator no seu servidor.")
+    async def convite_cmd(interaction: discord.Interaction):
+        
+        link_convite = "https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands"
+        
+        embed = discord.Embed(
+            title="⚖️ Leve o Explanator para o seu Servidor",
+            description="Nosso site oficial está em construção! Enquanto isso, use o botão abaixo para convidar o bot e começar a julgar os bagres dos seus amigos.",
+            color=0x5865F2 # Azul padrão do Discord
+        )
+        
+        embed.set_thumbnail(url=client.user.avatar.url)
+
+        # Cria um botão de link nativo
+        view = discord.ui.View()
+        botao = discord.ui.Button(
+            label="Adicionar ao Servidor", 
+            url=link_convite, 
+            style=discord.ButtonStyle.link
+        )
+        view.add_item(botao)
+        
+        # Envia a mensagem (ephemeral=True para não poluir o chat do servidor)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    # ----- LIMPAR CACHE -----
+    @tree.command(name="limpar-cache", description="[DEV] Esvazia a memória RAM de partidas do bot.")
+    async def limpar_cache_cmd(interaction: discord.Interaction):
+        # Proteção de segurança
+    
+        if interaction.user.id != MEU_ID_DISCORD:
+            await interaction.response.send_message("❌ Apenas o desenvolvedor pode limpar o cache.", ephemeral=True)
+            return
+            
+        tamanho_antes = len(cache_partidas)
+        cache_partidas.clear()
+        
+        await interaction.response.send_message(
+            f"🧹 **Cache Limpo!** {tamanho_antes} partidas foram apagadas da memória RAM.", 
+            ephemeral=True
+        )
+
+# ----- STATUS EXPLANATOR -----
+    @tree.command(name="status-explanator", description="Mostra a ficha e o Rank completo de um jogador.")
+    async def status_explanator_cmd(interaction: discord.Interaction, usuario: discord.Member):
+        await interaction.response.defer()
+        
+        status = await pegar_status_jogador(usuario.id)
+
+        if not status:
+            await interaction.followup.send(f"❌ O jogador {usuario.mention} não tem ficha criminal no Explanator. Está limpo (ou não foi cadastrado).")
+            return
+
+        # Cálculos e Lógica de Elo
+        punicoes = status["total_punicoes"]
+        elogios = status["total_elogios"]
+        pontos = status["pontos_explanator"]
+        alertas_md3 = status["alertas_md3"]
+        
+        # P/E Ratio (Evitando de divisão por zero)
+        if elogios == 0:
+            pe_ratio = float(punicoes)
+        else:
+            pe_ratio = punicoes / elogios
+
+        temporada_atual = await pegar_temporada_atual()
+        
+        # Lógica de Ranks para a barra
+        indice_atual = pontos // 3
+        if indice_atual >= len(ELOS_EXPLANATOR): indice_atual = len(ELOS_EXPLANATOR) - 1
+        
+        rank_nome_explanator = ELOS_EXPLANATOR[indice_atual]
+        
+        # Se estiver em MD3, o nome do Rank no título é diferente
+        rank_exibicao = rank_nome_explanator
+        if alertas_md3 < 3:
+            rank_exibicao = f"MD3 ({alertas_md3}/3)"
+            icon_atual_url = pegar_url_elo(0, temporada_atual) # Unranked
+        else:
+            icon_atual_url = pegar_url_elo(indice_atual + 3, temporada_atual)
+
+        # Elo Próximo e Anterior
+        indice_proximo = indice_atual + 1
+        if indice_proximo >= len(ELOS_EXPLANATOR): indice_proximo = len(ELOS_EXPLANATOR) - 1
+        
+        indice_anterior = indice_atual - 1
+        if indice_anterior < 0: indice_anterior = 0
+        
+        rank_anterior = ELOS_EXPLANATOR[indice_anterior]
+        rank_proximo = ELOS_EXPLANATOR[indice_proximo]
+        
+        icon_anterior_url = pegar_url_elo(indice_anterior + 3, temporada_atual)
+        icon_proximo_url = pegar_url_elo(indice_proximo + 3, temporada_atual)
+
+        # Gerar a imagem de progresso
+        imagem_progresso = await criar_imagem_progresso_explanator(
+            pontos, 
+            rank_nome_explanator, 
+            rank_anterior, 
+            rank_proximo, 
+            pegar_url_elo(indice_atual + 3, temporada_atual), # Sempre usa o ícone do rank real na barra
+            icon_anterior_url, 
+            icon_proximo_url
+        )
+
+        embed = discord.Embed(
+            title=f"📋 Ficha de Status: {status['nome_riot']}",
+            description=f"Estatísticas do jogador no Explanator.",
+            color=0x8A2BE2
+        )
+        
+        # avatar do discord
+        avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
+        embed.set_thumbnail(url=avatar_url)
+        
+        # Ícone do Elo no Author
+        if icon_atual_url:
+            embed.set_author(name=rank_exibicao, icon_url=icon_atual_url)
+
+        # Campos de informação
+        embed.add_field(name="🏆 Rank Atual", value=f"**{rank_exibicao}**", inline=True)
+        embed.add_field(name="⚖️ Taxa P/E", value=f"**{pe_ratio:.2f}**", inline=True)
+        embed.add_field(name="📊 Pontos", value=f"**{pontos}**", inline=True)
+        
+        embed.add_field(name="🚨 Punições", value=f"{punicoes}", inline=True)
+        embed.add_field(name="🌟 Elogios", value=f"{elogios}", inline=True)
+        embed.add_field(name="📅 MD3", value=f"{alertas_md3}/3", inline=True)
+        
+        # Adiciona a imagem de progresso
+        arquivo = discord.File(fp=imagem_progresso, filename="progresso.png")
+        embed.set_image(url="attachment://progresso.png")
+        
+        embed.set_footer(text=f"ID: {usuario.id} | Explanator")
+
+        await interaction.followup.send(file=arquivo, embed=embed)
+
+    # ----- COMPARAR STATUS -----
+    @tree.command(name="comparar-status-explanator", description="Compara o status de dois jogadores e decide quem é o maior bagre.")
+    @app_commands.describe(jogador1="Primeiro jogador", jogador2="Segundo jogador")
+    async def comparar_status(interaction: discord.Interaction, jogador1: discord.Member, jogador2: discord.Member):
+        await interaction.response.defer()
+        
+        status1 = await pegar_status_jogador(jogador1.id)
+        status2 = await pegar_status_jogador(jogador2.id)
+
+        if not status1 or not status2:
+            await interaction.followup.send("❌ Um ou ambos os jogadores não possuem ficha criminal no Explanator.")
+            return
+
+        # Dados Jogador 1
+        p1_pontos = status1["pontos_explanator"]
+        p1_punicoes = status1["total_punicoes"]
+        p1_elogios = status1["total_elogios"]
+        p1_pe = p1_punicoes / p1_elogios if p1_elogios > 0 else float(p1_punicoes)
+        
+        # Dados Jogador 2
+        p2_pontos = status2["pontos_explanator"]
+        p2_punicoes = status2["total_punicoes"]
+        p2_elogios = status2["total_elogios"]
+        p2_pe = p2_punicoes / p2_elogios if p2_elogios > 0 else float(p2_punicoes)
+
+        # Lógica de Comparação (Quem é MELHOR? No explanator, menos pontos = melhor)
+        vitorias_p1 = 0
+        vitorias_p2 = 0
+        
+        # Elo (Menos pontos = melhor)
+        if p1_pontos < p2_pontos: vitorias_p1 += 1
+        elif p2_pontos < p1_pontos: vitorias_p2 += 1
+        
+        # Punições (Menos = melhor)
+        if p1_punicoes < p2_punicoes: vitorias_p1 += 1
+        elif p2_punicoes < p1_punicoes: vitorias_p2 += 1
+        
+        # Elogios (Mais = melhor)
+        if p1_elogios > p2_elogios: vitorias_p1 += 1
+        elif p2_elogios > p1_elogios: vitorias_p2 += 1
+        
+        # P/E Ratio (Menos = melhor)
+        if p1_pe < p2_pe: vitorias_p1 += 1
+        elif p2_pe < p1_pe: vitorias_p2 += 1
+
+        # Decidir Vencedor (Menos bagre)
+        vencedor = jogador1 if vitorias_p1 >= vitorias_p2 else jogador2
+        perdedor = jogador2 if vencedor == jogador1 else jogador1
+        
+        # Obter Icons de Elo para ambos
+        temporada_atual = await pegar_temporada_atual()
+        def get_elo_icon(pts, md3):
+            if md3 < 3: return pegar_url_elo(0, temporada_atual)
+            idx = (pts // 3) + 3
+            if idx > 27: idx = 27
+            return pegar_url_elo(idx, temporada_atual)
+
+        icon1 = get_elo_icon(p1_pontos, status1["alertas_md3"])
+        icon2 = get_elo_icon(p2_pontos, status2["alertas_md3"])
+
+        # Gerar Imagem de Tabela Comparativa
+        categorias = ["Elo (Pontos)", "Punições", "Elogios", "Taxa P/E"]
+        p1_data = {
+            "nome": jogador1.display_name,
+            "avatar_url": str(jogador1.avatar.url if jogador1.avatar else jogador1.default_avatar.url),
+            "stats": {
+                "Elo (Pontos)": (p1_pontos, p1_pontos < p2_pontos, icon1),
+                "Punições": (p1_punicoes, p1_punicoes < p2_punicoes, None),
+                "Elogios": (p1_elogios, p1_elogios > p2_elogios, None),
+                "Taxa P/E": (f"{p1_pe:.2f}", p1_pe < p2_pe, None)
+            }
+        }
+        p2_data = {
+            "nome": jogador2.display_name,
+            "avatar_url": str(jogador2.avatar.url if jogador2.avatar else jogador2.default_avatar.url),
+            "stats": {
+                "Elo (Pontos)": (p2_pontos, p2_pontos < p1_pontos, icon2),
+                "Punições": (p2_punicoes, p2_punicoes < p1_punicoes, None),
+                "Elogios": (p2_elogios, p2_elogios > p1_elogios, None),
+                "Taxa P/E": (f"{p2_pe:.2f}", p2_pe < p1_pe, None)
+            }
+        }
+
+        imagem_final = await criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor.display_name, titulo="TRIBUNAL: DUELO EXPLANATOR")
+        
+        # Montar Embed
+        embed = discord.Embed(
+            title="⚔️ DUELO EXPLANATOR ⚔️",
+            description=f"Estatisticamente, **{vencedor.display_name}** é o vencedor!",
+            color=0x8A2BE2
+        )
+        
+        arquivo = discord.File(fp=imagem_final, filename="duelo.png")
+        embed.set_image(url="attachment://duelo.png")
+        embed.set_footer(text=f"Comparação gerada pelo Explanator | ID: {interaction.user.id}")
+        
+        await interaction.followup.send(file=arquivo, embed=embed)
+
+    # ----- STATUS VALORANT -----
+    @tree.command(name="status-valorant", description="Mostra as estatísticas competitivas oficiais do jogador no Valorant.")
+    @app_commands.describe(usuario="O jogador para consultar")
+    async def status_valorant_cmd(interaction: discord.Interaction, usuario: discord.Member):
+        await interaction.response.defer()
+        
+        status = await pegar_status_jogador(usuario.id)
+        if not status:
+            await interaction.followup.send(f"❌ O jogador {usuario.mention} não está cadastrado no bot.")
+            return
+
+        stats = await coletar_estatisticas_valorant(status["puuid"])
+        
+        # Gerar Banner Visual Premium
+        stats_data = {
+            'kd': stats['kd'],
+            'hs': stats['hs_percent'],
+            'win': stats['win_percent'],
+            'dmg': stats['dmg_round']
+        }
+        
+        avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
+        
+        imagem_banner = await criar_banner_status_valorant(
+            status['nome_riot'],
+            str(avatar_url),
+            stats['elo'],
+            stats['elo_url'],
+            stats_data
+        )
+        
+        # Montar Embed
+        embed = discord.Embed(
+            title=f"🎮 Status Valorant: {status['nome_riot']}",
+            description=f"Estatísticas competitivas extraídas das suas últimas partidas.",
+            color=0xFD4556 # Vermelho Valorant
+        )
+        
+        arquivo = discord.File(fp=imagem_banner, filename="status_valorant.png")
+        embed.set_image(url="attachment://status_valorant.png")
+        embed.set_footer(text=f"Dados oficiais via HenrikDev API | ID: {usuario.id}")
+        
+        await interaction.followup.send(file=arquivo, embed=embed)
+
+    # ----- COMPARAR STATUS VALORANT -----
+    @tree.command(name="comparar-status-valorant", description="Compara o desempenho competitivo de dois jogadores no Valorant.")
+    @app_commands.describe(jogador1="Primeiro jogador", jogador2="Segundo jogador")
+    async def comparar_valorant(interaction: discord.Interaction, jogador1: discord.Member, jogador2: discord.Member):
+        await interaction.response.defer()
+        
+        s1 = await pegar_status_jogador(jogador1.id)
+        s2 = await pegar_status_jogador(jogador2.id)
+
+        if not s1 or not s2:
+            await interaction.followup.send("❌ Um ou ambos os jogadores não estão cadastrados.")
+            return
+
+        stats1 = await coletar_estatisticas_valorant(s1["puuid"])
+        stats2 = await coletar_estatisticas_valorant(s2["puuid"])
+
+        # Lógica de Comparação (Quem é MELHOR? No valorant, MAIOR = melhor)
+        v1 = 0
+        v2 = 0
+        
+        if stats1['kd'] > stats2['kd']: v1 += 1
+        elif stats2['kd'] > stats1['kd']: v2 += 1
+        
+        if stats1['hs_percent'] > stats2['hs_percent']: v1 += 1
+        elif stats2['hs_percent'] > stats1['hs_percent']: v2 += 1
+        
+        if stats1['win_percent'] > stats2['win_percent']: v1 += 1
+        elif stats2['win_percent'] > stats1['win_percent']: v2 += 1
+        
+        if stats1['dmg_round'] > stats2['dmg_round']: v1 += 1
+        elif stats2['dmg_round'] > stats1['dmg_round']: v2 += 1
+        
+        if stats1['elo_rank'] > stats2['elo_rank']: v1 += 1
+        elif stats2['elo_rank'] > stats1['elo_rank']: v2 += 1
+
+        vencedor = jogador1 if v1 >= v2 else jogador2
+        perdedor = jogador2 if vencedor == jogador1 else jogador1
+        
+        # Gerar Imagem de Tabela Comparativa
+        categorias = ["Elo (Rank)", "K/D Ratio", "% HS", "% Win", "Dmg/Round"]
+        p1_data = {
+            "nome": jogador1.display_name,
+            "avatar_url": str(jogador1.avatar.url if jogador1.avatar else jogador1.default_avatar.url),
+            "stats": {
+                "Elo (Rank)": (stats1['elo'], stats1['elo_rank'] > stats2['elo_rank'], stats1['elo_url']),
+                "K/D Ratio": (f"{stats1['kd']:.2f}", stats1['kd'] > stats2['kd'], None),
+                "% HS": (f"{stats1['hs_percent']:.1f}%", stats1['hs_percent'] > stats2['hs_percent'], None),
+                "% Win": (f"{stats1['win_percent']:.1f}%", stats1['win_percent'] > stats2['win_percent'], None),
+                "Dmg/Round": (f"{stats1['dmg_round']:.1f}", stats1['dmg_round'] > stats2['dmg_round'], None)
+            }
+        }
+        p2_data = {
+            "nome": jogador2.display_name,
+            "avatar_url": str(jogador2.avatar.url if jogador2.avatar else jogador2.default_avatar.url),
+            "stats": {
+                "Elo (Rank)": (stats2['elo'], stats2['elo_rank'] > stats1['elo_rank'], stats2['elo_url']),
+                "K/D Ratio": (f"{stats2['kd']:.2f}", stats2['kd'] > stats1['kd'], None),
+                "% HS": (f"{stats2['hs_percent']:.1f}%", stats2['hs_percent'] > stats1['hs_percent'], None),
+                "% Win": (f"{stats2['win_percent']:.1f}%", stats2['win_percent'] > stats1['win_percent'], None),
+                "Dmg/Round": (f"{stats2['dmg_round']:.1f}", stats2['dmg_round'] > stats1['dmg_round'], None)
+            }
+        }
+
+        imagem_final = await criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor.display_name, titulo="DUELO VALORANT")
+        
+        # Montar Embed
+        embed = discord.Embed(
+            title="⚔️ DUELO VALORANT ⚔️",
+            description=f"O jogador **{vencedor.display_name}** é o mais brabo no Valorant!",
+            color=0xFD4556
+        )
+        
+        arquivo = discord.File(fp=imagem_final, filename="vitoria.png")
+        embed.set_image(url="attachment://vitoria.png")
+        embed.set_footer(text=f"Dados agregados via HenrikDev API | ID: {interaction.user.id}")
+        
+        await interaction.followup.send(file=arquivo, embed=embed)
+    
+    @tree.command(name="condicoes", description="Mostra o livro de regras oficial do Explanator.")
+    async def regras_cmd(interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        # Montando o Embed principal
+        embed_punicoes = discord.Embed(
+            title="📖 CÓDIGO PENAL: Punições",
+            description="Estas são as leis que regem o Explanator. O bot vai te punir com base nesses critérios exatos.",
+            color=0xFF0000
+        )
+
+        # Seção de Punições (Baseado na função verificar_regras_punicao)
+        regras_punicao = (
+            "\n**📉 Queda de Elo**\n"
+            "> Cair de elo.\n\n"
+            "**🧱 O Pacifista**\n"
+            "> Jogar 10 ou mais rounds e fazer ZERO abates.\n\n"
+            "**🕸️ K/D**\n"
+            "> Terminar a partida com um K/D menor ou igual a `0.5`.\n\n"
+            "**📉 Sequência de derrotas**\n"
+            "> Engatar uma sequência de `4` ou mais derrotas seguidas.\n\n"
+            "**🦵 Dieta do peito**\n"
+            "> Acertar `84%` ou mais dos tiros no peito (Regra anulada se o jogador for mono Sniper)."
+        )
+        embed_punicoes.add_field(name="🚨 INFRAÇÕES (Punições)", value=regras_punicao, inline=False)
+        embed_punicoes.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        embed_elogios = discord.Embed(
+            title="📖 CÓDIGO PENAL: Méritos",
+            description="Até o Explanator sabe reconhecer um milagre. O bot te elogia com base nestes critérios:",
+            color=0x00FF00 # Verde Sucesso
+        )
+
+        # Seção de Elogios (Baseado na função verificar_regras_elogio)
+        regras_elogio = (
+            "\n**📈 Subir de Elo**\n"
+            "> Subir de elo na ranqueada.\n\n"
+            "**🔥 K/D**\n"
+            "> Terminar com K/D igual ou superior a `2.0` com pelo menos `20` abates.\n\n"
+            "**🏆 Sequência de vitórias**\n"
+            "> Engatar uma sequência de `4` ou mais vitórias seguidas.\n\n"
+            "**🤝 O Garçom (Suporte)**\n"
+            "> Fazer `13` ou mais assistências mantendo o K/D neutro ou positivo (`pra Miks sao 25 assists ou mais`)."
+        )
+        embed_elogios.add_field(name="🌟 MÉRITOS (Elogios)", value=regras_elogio, inline=False)
+        embed_elogios.set_thumbnail(url=client.user.avatar.url if client.user.avatar else None)
+
+        #enviando msg com os botoes
+        view = ViewRegras(embed_punicoes, embed_elogios)
+        
+        await interaction.followup.send(embed=embed_punicoes, view=view)
+
+    @tree.command(name="mensagem-anonima", description="Manda uma mensagem anonima para o usuario.")
+    @app_commands.describe(
+        para="A pessoa que vai receber a mensagem",
+        mensagem="O texto que você quer enviar anonimamente"
+    )
+    async def mensagem_anonima(interaction: discord.Interaction, mensagem: str, para: discord.Member = None ):
+        
+        if para:
+            await interaction.response.send_message(
+            f"🤫 Sua mensagem anônima para {para.display_name} foi enviada em segredo!(so vc consegue ver isso)", 
+            ephemeral=True
+            )
+            texto_anonimo = f"{para.mention} Alguém te enviou uma mensagem anônima:\n\n\"{mensagem}\""
+            await interaction.channel.send(content=texto_anonimo)
+        else:
+            await interaction.response.send_message(
+            f"🤫 Sua mensagem anônima foi enviada em segredo!(so vc consegue ver isso)", 
+            ephemeral=True
+            )
+            id_cargo = await pegar_cargo_servidor(interaction.guild.id)
+
+            texto_ping = f"<@&{id_cargo}>" if id_cargo else ''
+
+            texto_anonimo = f"{texto_ping} Alguém enviou uma mensagem anônima:\n\n\"{mensagem}\""
+            await interaction.channel.send(content=texto_anonimo)
+
