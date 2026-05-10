@@ -36,3 +36,40 @@ window.addEventListener('scroll', () => {
     ? '0 4px 40px rgba(0,0,0,0.4)'
     : '';
 }, { passive: true });
+
+// Mobile nav toggle
+// Emil: aria-expanded como fonte de verdade do estado — sem flags extras
+const navToggle = document.querySelector('.nav-toggle');
+const navMobile = document.querySelector('.nav-mobile');
+
+if (navToggle && navMobile) {
+  function openMenu() {
+    navToggle.setAttribute('aria-expanded', 'true');
+    navMobile.classList.add('is-open');
+    navToggle.setAttribute('aria-label', 'Fechar menu');
+  }
+  function closeMenu() {
+    navToggle.setAttribute('aria-expanded', 'false');
+    navMobile.classList.remove('is-open');
+    navToggle.setAttribute('aria-label', 'Abrir menu');
+  }
+
+  navToggle.addEventListener('click', () => {
+    navToggle.getAttribute('aria-expanded') === 'true' ? closeMenu() : openMenu();
+  });
+
+  // Fecha ao clicar em qualquer link do menu
+  navMobile.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', closeMenu);
+  });
+
+  // Fecha ao clicar fora — usa capture para pegar antes do bubbling
+  document.addEventListener('click', e => {
+    if (!nav.contains(e.target)) closeMenu();
+  }, { passive: true });
+
+  // Fecha ao pressionar Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMenu();
+  });
+}
