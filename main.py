@@ -282,6 +282,7 @@ async def monitoramento_continuo():
         if novo_match_id:
             #Compara se o ID mudou
             if novo_match_id != ultimo_match_salvo and novo_match_id not in cache_partidas_vistas:
+                cache_partidas_vistas.append(novo_match_id)
                 print(f"🚨 NOVA PARTIDA DETECTADA para {nome_jogador}!")
                 print(f"Match ID antigo: {ultimo_match_salvo} | Novo: {novo_match_id}")
                 
