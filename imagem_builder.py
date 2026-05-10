@@ -367,14 +367,15 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
             if ico:
                 sz  = 125
                 ico = ico.resize((sz, sz)).convert("RGBA")
-                if not win1:
-                    ico = ico.convert("L").convert("RGBA")
                 fundo.paste(ico, (px1 - sz//2, y_mid - sz//2), mask=ico)
+                if win1:
+                    tx = px1 - sz//2 - 28
+                    draw.polygon([(tx - 12, y_mid + 8), (tx + 12, y_mid + 8), (tx, y_mid - 10)],
+                                 fill=GREEN)
         else:
             clr1 = GREEN    if win1 else LOSER_COL
             fnt1 = f_val_w  if win1 else f_val_l
             draw.text((px1, y_mid), str(v1_raw), font=fnt1, fill=clr1, anchor="mm")
-            # Pequeno indicador de vitória (triângulo)
             if win1:
                 tx = px1 - 55
                 draw.polygon([(tx - 12, y_mid + 8), (tx + 12, y_mid + 8), (tx, y_mid - 10)],
@@ -387,9 +388,11 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
             if ico:
                 sz  = 125
                 ico = ico.resize((sz, sz)).convert("RGBA")
-                if not win2:
-                    ico = ico.convert("L").convert("RGBA")
                 fundo.paste(ico, (px2 - sz//2, y_mid - sz//2), mask=ico)
+                if win2:
+                    tx = px2 + sz//2 + 28
+                    draw.polygon([(tx - 12, y_mid + 8), (tx + 12, y_mid + 8), (tx, y_mid - 10)],
+                                 fill=GREEN)
         else:
             clr2 = GREEN    if win2 else LOSER_COL
             fnt2 = f_val_w  if win2 else f_val_l
