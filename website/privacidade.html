@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidade — Explanator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-mark">E</span>
+        <span class="logo-text">EXPLANATOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="sobre.html" class="nav-link">Sobre</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn btn-nav">Adicionar ao Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PAGE HERO -->
+  <section class="page-hero">
+    <div class="hero-glow glow-red" style="top:-100px;left:10%"></div>
+    <div class="container">
+      <div class="section-label">Legal</div>
+      <h1 class="page-hero-title">Política de <span class="text-red">Privacidade</span></h1>
+      <p class="page-hero-sub">Última atualização: maio de 2026. Como o Explanator coleta, usa e protege seus dados.</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <section class="section">
+    <div class="container">
+      <div class="privacy-doc">
+
+        <div class="privacy-block">
+          <h2>1. Responsável pelo Tratamento</h2>
+          <p>O Explanator é um bot de Discord desenvolvido e mantido de forma independente. Para qualquer questão relacionada a dados pessoais, entre em contato pelo e-mail <a href="mailto:soooosa0610@gmail.com" class="privacy-link">soooosa0610@gmail.com</a>.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>2. Dados Coletados</h2>
+          <p>O Explanator coleta e armazena apenas os dados estritamente necessários para seu funcionamento:</p>
+          <ul class="privacy-list">
+            <li><strong>Riot ID</strong> (Nome#TAG) — fornecido voluntariamente pelo administrador do servidor via <code>/cadastrar-alvo</code></li>
+            <li><strong>Dados de partidas competitivas</strong> — obtidos via Riot Games API: resultado, K/D ratio, elo, kills, mortes, assistências e headshot %</li>
+            <li><strong>ID do servidor Discord</strong> — para associar configurações e jogadores ao servidor correto</li>
+            <li><strong>ID do canal Discord</strong> — configurado via <code>/ativar-esse-canal</code> para envio de notificações</li>
+          </ul>
+          <p>Nenhum dado adicional é coletado. O bot não acessa mensagens privadas, não monitora outros canais e não coleta nenhuma informação fora do escopo acima.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>3. Finalidade do Tratamento</h2>
+          <p>Os dados são usados exclusivamente para:</p>
+          <ul class="privacy-list">
+            <li>Detectar o término de partidas competitivas dos jogadores cadastrados</li>
+            <li>Analisar o desempenho da partida com base nos critérios definidos (K/D, sequências, bodyshot %)</li>
+            <li>Enviar notificações automáticas no canal configurado pelo administrador</li>
+            <li>Calcular e exibir o ranking interno do servidor (sistema Anti-Rank)</li>
+          </ul>
+        </div>
+
+        <div class="privacy-block">
+          <h2>4. Contexto de Uso</h2>
+          <p>O Explanator é projetado para uso em servidores privados de grupos de amigos. Os jogadores monitorados são cadastrados pelo administrador do servidor — geralmente com conhecimento e consentimento implícito do grupo. O bot não é projetado para monitorar jogadores sem o contexto de um grupo fechado.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>5. Fonte dos Dados</h2>
+          <p>Todos os dados de partida são obtidos diretamente da <strong>Riot Games API</strong>, acessando exclusivamente informações públicas dos perfis cadastrados. O Explanator não cria, infere ou altera esses dados — apenas os processa conforme recebido da API oficial, em conformidade com os <a href="https://developer.riotgames.com/policies/general" target="_blank" class="privacy-link">Termos de Uso para Desenvolvedores da Riot Games</a>.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>6. Retenção de Dados</h2>
+          <p>Os dados de um jogador são mantidos enquanto ele estiver cadastrado no sistema do servidor. Históricos de partida são utilizados apenas para cálculos de sequências consecutivas e pontuação do Anti-Rank — não são armazenados de forma indefinida nem utilizados para outros fins.</p>
+          <p>Dados de servidores onde o bot foi removido são excluídos em até 30 dias.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>7. Compartilhamento</h2>
+          <p>Nenhum dado coletado é vendido, alugado, compartilhado ou transferido a terceiros. Os dados permanecem no banco de dados interno do bot e são utilizados exclusivamente para as finalidades descritas nesta política.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>8. Seus Direitos</h2>
+          <p>Você pode a qualquer momento:</p>
+          <ul class="privacy-list">
+            <li><strong>Remover seus dados</strong> — use o comando <code>/remover-alvo</code> no Discord ou envie um e-mail para <a href="mailto:soooosa0610@gmail.com" class="privacy-link">soooosa0610@gmail.com</a></li>
+            <li><strong>Consultar quais dados estão armazenados</strong> — use <code>/status-explanator</code> no Discord ou solicite por e-mail</li>
+            <li><strong>Solicitar correção de dados incorretos</strong> — entre em contato pelo e-mail</li>
+            <li><strong>Solicitar exportação dos seus dados</strong> — entre em contato pelo e-mail</li>
+          </ul>
+          <p>Solicitações enviadas por e-mail são atendidas em até 7 dias úteis.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>9. Segurança</h2>
+          <p>O banco de dados do Explanator é mantido em ambiente privado com acesso restrito ao desenvolvedor. Riot IDs e dados de partida não são expostos publicamente — as notificações são enviadas apenas no canal Discord configurado pelo administrador do próprio servidor.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>10. Conformidade com a Riot Games</h2>
+          <p>O Explanator utiliza a Riot Games API exclusivamente para as finalidades descritas nesta política, em total conformidade com os <a href="https://developer.riotgames.com/policies/general" target="_blank" class="privacy-link">Riot Games Developer Policies</a>. Os dados de partida não são redistribuídos, revendidos ou utilizados para fins comerciais.</p>
+          <p>O Explanator não é endossado pela Riot Games e não reflete a opinião ou os valores da Riot Games.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>11. Alterações nesta Política</h2>
+          <p>Esta política pode ser atualizada para refletir mudanças no funcionamento do bot ou em requisitos legais aplicáveis. A data da última atualização é sempre indicada no topo deste documento. Mudanças significativas serão comunicadas nos servidores onde o bot está ativo.</p>
+        </div>
+
+        <div class="privacy-block">
+          <h2>Contato</h2>
+          <p>Para qualquer questão relacionada a privacidade, tratamento de dados ou solicitação de exclusão:</p>
+          <p><a href="mailto:soooosa0610@gmail.com" class="privacy-link">soooosa0610@gmail.com</a></p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="nav-logo">
+          <span class="logo-mark">E</span>
+          <span class="logo-text">EXPLANATOR</span>
+        </span>
+        <span class="footer-tagline">O JUIZ DO LOBBY</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-copy">Feito para humilhar com carinho.</span>
+        <div class="footer-links">
+          <a href="privacidade.html" class="footer-link">Privacidade</a>
+          <span class="footer-sep">·</span>
+          <a href="mailto:soooosa0610@gmail.com" class="footer-link">soooosa0610@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

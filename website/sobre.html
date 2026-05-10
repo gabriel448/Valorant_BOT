@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sobre — Explanator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-mark">E</span>
+        <span class="logo-text">EXPLANATOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="sobre.html" class="nav-link active">Sobre</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn btn-nav">Adicionar ao Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PAGE HERO -->
+  <section class="page-hero">
+    <div class="hero-glow glow-red" style="top:-100px;left:10%"></div>
+    <div class="hero-glow glow-purple" style="top:-80px;right:10%"></div>
+    <div class="page-hero-stamp">
+      <span>EXPLANATOR</span>
+      <span class="stamp-sub">// VERDICT ACTIVE</span>
+    </div>
+    <div class="container">
+      <div class="section-label">Manual Completo</div>
+      <h1 class="page-hero-title">Tudo sobre o <span class="text-red">Explanator</span></h1>
+      <p class="page-hero-sub">Regras, comandos, funcionalidades e o sistema Anti-Rank explicados.</p>
+    </div>
+  </section>
+
+  <!-- PUNIÇÕES -->
+  <section class="section">
+    <div class="container">
+      <div class="section-label red-label">Punições</div>
+      <h2 class="section-title">Quando o bot <span class="text-red">ataca</span></h2>
+      <p class="section-desc">Cinco condições monitoradas automaticamente após cada partida competitiva.</p>
+
+      <div class="rules-grid">
+        <div class="rule-card red-card">
+          <div class="rule-icon">📉</div>
+          <h3>Queda de Elo</h3>
+          <p>Qualquer rebaixamento em partidas Competitivas gera uma notificação de vexame imediata no canal configurado.</p>
+        </div>
+
+        <div class="rule-card red-card">
+          <div class="rule-icon">👻</div>
+          <h3>O Pacifista</h3>
+          <p>Jogar <strong>10 rounds ou mais</strong> em uma partida sem conseguir nenhuma eliminação. Você estava presente?</p>
+        </div>
+
+        <div class="rule-card red-card">
+          <div class="rule-icon">💀</div>
+          <h3>K/D Desastroso</h3>
+          <p>Terminar a partida com K/D Ratio <strong>igual ou inferior a 0.5</strong>. Metade das mortes de kills. Impressionante.</p>
+        </div>
+
+        <div class="rule-card red-card">
+          <div class="rule-icon">📛</div>
+          <h3>Fundo do Poço</h3>
+          <p>Acumular <strong>4 ou mais derrotas consecutivas</strong>. Empates pausam, mas não resetam o contador de sofrimento.</p>
+        </div>
+
+        <div class="rule-card red-card wide-card">
+          <div class="rule-icon">🎯</div>
+          <h3>Mira Magnética de Abdômen</h3>
+          <p>Se <strong>84% ou mais</strong> dos tiros acertados foram no peito (bodyshots), o bot executa o infrator.</p>
+          <div class="rule-exception">
+            <span class="tag gray">🛡️ Exceção do Sniper</span>
+            <span>Perdoado se mais de 50% dos abates vieram de Operator, Outlaw, Marshal ou Tour de Force (Chamber).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ELOGIOS -->
+  <section class="section section-dark">
+    <div class="container">
+      <div class="section-label gold-label">Elogios</div>
+      <h2 class="section-title">Quando o bot <span class="text-gold">celebra</span></h2>
+      <p class="section-desc">Quatro condições para quem realmente merece reconhecimento.</p>
+
+      <div class="rules-grid">
+        <div class="rule-card gold-card">
+          <div class="rule-icon">🏅</div>
+          <h3>Promoção de Elo</h3>
+          <p>Subida de Elo gera um Embed dourado exclusivo com a imagem oficial da nova medalha do jogador.</p>
+        </div>
+
+        <div class="rule-card gold-card">
+          <div class="rule-icon">⭐</div>
+          <h3>Alerta de MVP</h3>
+          <p>K/D <strong>≥ 2.0</strong> com no mínimo <strong>20 eliminações</strong>. O modo Narrador exalta o desempenho publicamente.</p>
+        </div>
+
+        <div class="rule-card gold-card">
+          <div class="rule-icon">🔥</div>
+          <h3>Sequência de Vitórias</h3>
+          <p><strong>4 ou mais vitórias consecutivas</strong>. A IA reconhece o momento imparável e parabeniza a consistência.</p>
+        </div>
+
+        <div class="rule-card gold-card">
+          <div class="rule-icon">🍽️</div>
+          <h3>O Garçom</h3>
+          <p><strong>13 ou mais assistências</strong> com K/D neutro ou positivo (≥ 1.0). Trabalho em equipe premiado.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANTI-RANK -->
+  <section class="section">
+    <div class="container">
+      <div class="section-label purple-label">Anti-Rank</div>
+      <h2 class="section-title">A <span class="text-purple">Parede da Vergonha</span></h2>
+      <p class="section-desc">Transformamos a ruindade em um ecossistema competitivo próprio.</p>
+
+      <div class="antirank-layout">
+        <div class="antirank-info">
+          <div class="antirank-item">
+            <div class="antirank-bullet red"></div>
+            <div>
+              <strong>+1 ponto</strong> por punição recebida
+            </div>
+          </div>
+          <div class="antirank-item">
+            <div class="antirank-bullet gold"></div>
+            <div>
+              <strong>−1 ponto</strong> por MVP ou promoção de Elo
+            </div>
+          </div>
+          <div class="antirank-item">
+            <div class="antirank-bullet purple"></div>
+            <div>
+              A cada <strong>3 pontos</strong>, o jogador sobe na escala do Explanator
+            </div>
+          </div>
+          <div class="antirank-item">
+            <div class="antirank-bullet gray"></div>
+            <div>
+              Escala vai do <strong>Ferro 1</strong> até o <strong>Radiante</strong> — mas ao contrário
+            </div>
+          </div>
+        </div>
+
+        <div class="leaderboard-preview">
+          <div class="lb-header">
+            <span>🏆 TOP BAGRES DO SERVIDOR</span>
+          </div>
+          <div class="lb-row lb-row-1">
+            <span class="lb-pos">1°</span>
+            <div class="lb-avatar red">B</div>
+            <div class="lb-info">
+              <span class="lb-name">Bagre#BR1</span>
+              <span class="lb-elo">Radiante do Explanator</span>
+            </div>
+            <span class="lb-pts red">74 pts</span>
+          </div>
+          <div class="lb-row">
+            <span class="lb-pos">2°</span>
+            <div class="lb-avatar" style="background:#7B2FBE">M</div>
+            <div class="lb-info">
+              <span class="lb-name">Morto#Sem1</span>
+              <span class="lb-elo">Diamante do Explanator</span>
+            </div>
+            <span class="lb-pts">58 pts</span>
+          </div>
+          <div class="lb-row">
+            <span class="lb-pos">3°</span>
+            <div class="lb-avatar" style="background:#3d4f6b">Z</div>
+            <div class="lb-info">
+              <span class="lb-name">ZeroBala#404</span>
+              <span class="lb-elo">Platina do Explanator</span>
+            </div>
+            <span class="lb-pts">41 pts</span>
+          </div>
+          <div class="lb-footer">gerado com <code>/top-bagres</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMANDOS -->
+  <section class="section section-dark">
+    <div class="container">
+      <div class="section-label">Comandos</div>
+      <h2 class="section-title">Slash <span class="text-red">Commands</span></h2>
+      <p class="section-desc">Todos os comandos disponíveis no Discord via <code>/</code>.</p>
+
+      <div class="cmd-group-label">Gerenciamento</div>
+      <div class="commands-list commands-list-sm">
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/cadastrar-alvo</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Adiciona um novo jogador ao monitoramento. Basta informar o Riot ID no formato <code>Nome#TAG</code>.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/remover-alvo</span>
+            <span class="cmd-badge">Todos / ADM</span>
+          </div>
+          <p>Remove um jogador do monitoramento. Usuários comuns só podem remover a si mesmos; ADMs removem qualquer um.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/top-bagres</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Gera e envia a imagem dinâmica da Parede da Vergonha com os jogadores mais punidos do servidor.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/modo-ia</span>
+            <span class="cmd-badge red-badge">ADM</span>
+          </div>
+          <p>Altera a personalidade global da IA entre <code>intenso</code>, <code>leve</code> e <code>comentarista</code>.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/ativar-esse-canal</span>
+            <span class="cmd-badge red-badge">ADM</span>
+          </div>
+          <p>Define o canal de texto atual como local oficial onde o Explanator enviará os alertas e julgamentos.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/ativar-esse-cargo</span>
+            <span class="cmd-badge red-badge">ADM</span>
+          </div>
+          <p>Define qual cargo o bot deve pingar automaticamente sempre que uma nova notificação for enviada.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/help</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Abre o guia de primeiros passos e o manual de comandos completo com navegação por botões interativos.</p>
+        </div>
+      </div>
+
+      <div class="cmd-group-label">Status &amp; Comparação</div>
+      <div class="commands-list">
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/status-explanator</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Exibe a ficha criminal completa de um jogador: Rank no Explanator, total de punições e elogios, razão P/E e a barra de progresso até o próximo Elo.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/comparar-status-explanator</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Duelo de Bagres! Compara dois jogadores no Anti-Rank e decide quem é o maior vexame do servidor com base em pontos, punições e histórico.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/status-valorant</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Gera um banner visual premium com as estatísticas competitivas reais do jogador extraídas das últimas partidas: K/D, headshot %, winrate e dano por round.</p>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-top">
+            <span class="cmd-name">/comparar-status-valorant</span>
+            <span class="cmd-badge">Todos</span>
+          </div>
+          <p>Desafie um amigo para um duelo visual de estatísticas reais. O bot analisa K/D, HS%, winrate e dano/round das últimas partidas e declara um vencedor.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="cta-glow"></div>
+    <div class="cta-stamp">
+      <span>EXPLANATOR</span>
+      <span class="stamp-sub">// VERDICT ACTIVE</span>
+    </div>
+    <div class="container cta-inner">
+      <h2 class="cta-title">Pronto para julgar?</h2>
+      <p class="cta-sub">Adicione o Explanator ao seu servidor e configure em menos de 2 minutos.</p>
+      <a href="https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn btn-primary btn-lg">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+        Adicionar ao Discord — É Grátis
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="nav-logo">
+          <span class="logo-mark">E</span>
+          <span class="logo-text">EXPLANATOR</span>
+        </span>
+        <span class="footer-tagline">O JUIZ DO LOBBY</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-copy">Feito para humilhar com carinho.</span>
+        <div class="footer-links">
+          <a href="privacidade.html" class="footer-link">Privacidade</a>
+          <span class="footer-sep">·</span>
+          <a href="mailto:soooosa0610@gmail.com" class="footer-link">soooosa0610@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
