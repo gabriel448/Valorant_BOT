@@ -224,10 +224,6 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
     draw.polygon([(0, 0), (tri, 0), (0, tri)], fill=RED)
     draw.polygon([(largura, 0), (largura - tri, 0), (largura, tri)], fill=RED)
 
-    # ── TÍTULO ───────────────────────────────────────────────────────────────
-    draw.text((largura // 2, 72), titulo, font=f_title, fill=WHITE, anchor="mm")
-    bb = draw.textbbox((largura // 2, 72), titulo, font=f_title, anchor="mm")
-    draw.rectangle([(bb[0], bb[3] + 7), (bb[2], bb[3] + 10)], fill=RED)
 
     # ── CENTROS DOS JOGADORES ────────────────────────────────────────────────
     X_P1     = 375
@@ -387,7 +383,8 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
             fnt1 = f_val_w  if win1 else f_val_l
             draw.text((px1, y_mid), str(v1_raw), font=fnt1, fill=clr1, anchor="mm")
             if win1:
-                tx = px1 - 55
+                bb1 = draw.textbbox((px1, y_mid), str(v1_raw), font=fnt1, anchor="mm")
+                tx = bb1[0] - 22  # sempre 22px à esquerda da borda do texto
                 draw.polygon([(tx - 12, y_mid + 8), (tx + 12, y_mid + 8), (tx, y_mid - 10)],
                              fill=GREEN)
 
@@ -408,7 +405,8 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
             fnt2 = f_val_w  if win2 else f_val_l
             draw.text((px2, y_mid), str(v2_raw), font=fnt2, fill=clr2, anchor="mm")
             if win2:
-                tx = px2 + 55
+                bb2 = draw.textbbox((px2, y_mid), str(v2_raw), font=fnt2, anchor="mm")
+                tx = bb2[2] + 22  # sempre 22px à direita da borda do texto
                 draw.polygon([(tx - 12, y_mid + 8), (tx + 12, y_mid + 8), (tx, y_mid - 10)],
                              fill=GREEN)
 
