@@ -298,11 +298,21 @@ async def criar_imagem_tabela_comparativa(p1_data, p2_data, categorias, vencedor
 
     # ── VS CENTRAL ───────────────────────────────────────────────────────────
     vs_x = largura // 2
+    # Calcula onde as linhas terminam — respeita o raio real de cada avatar
+    _gap       = 22
+    _borda_win = 16
+    _borda_los = 8
+    # Avatar esquerdo (X_P1): a linha começa logo após sua borda direita
+    _r_esq = (SIZE_WIN if is_p1_win else SIZE_LOS) // 2 + (_borda_win if is_p1_win else _borda_los)
+    line_esq = X_P1 + _r_esq + _gap
+    # Avatar direito (X_P2): a linha termina logo antes de sua borda esquerda
+    _r_dir = (SIZE_WIN if not is_p1_win else SIZE_LOS) // 2 + (_borda_win if not is_p1_win else _borda_los)
+    line_dir = X_P2 - _r_dir - _gap
     # Linhas horizontais com caps
-    draw.line([(vs_x - 230, Y_AV), (vs_x - 68, Y_AV)], fill=RED, width=3)
-    draw.line([(vs_x + 68, Y_AV), (vs_x + 230, Y_AV)], fill=RED, width=3)
-    draw.line([(vs_x - 230, Y_AV - 10), (vs_x - 230, Y_AV + 10)], fill=RED, width=3)
-    draw.line([(vs_x + 230, Y_AV - 10), (vs_x + 230, Y_AV + 10)], fill=RED, width=3)
+    draw.line([(line_esq, Y_AV), (vs_x - 68, Y_AV)], fill=RED, width=3)
+    draw.line([(vs_x + 68, Y_AV), (line_dir, Y_AV)], fill=RED, width=3)
+    draw.line([(line_esq, Y_AV - 10), (line_esq, Y_AV + 10)], fill=RED, width=3)
+    draw.line([(line_dir, Y_AV - 10), (line_dir, Y_AV + 10)], fill=RED, width=3)
     # Diamantes decorativos
     d = 14
     draw.polygon([(vs_x, Y_AV - 92 - d), (vs_x + d, Y_AV - 92),
