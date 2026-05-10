@@ -1,7 +1,7 @@
 import asyncpg
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 #carregando a url do .env
@@ -61,6 +61,21 @@ async def iniciar_banco():
     await conn.execute(query_associacao)
     print("Tabela de associacao criada/checada com sucesso")
     print("Estrutura Relacional (3 Tabelas) criada com sucesso!")
+
+    # Tabela 4: Autorizações RSO (OAuth oficial da Riot)
+    query_rso = """
+    CREATE TABLE IF NOT EXISTS autorizacoes_rso (
+        riot_puuid VARCHAR(78) PRIMARY KEY,
+        riot_game_name VARCHAR(16) NOT NULL,
+        riot_tag_line VARCHAR(5) NOT NULL,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT,
+        token_expires_at TIMESTAMP NOT NULL,
+        authorized_at TIMESTAMP DEFAULT NOW()
+    );
+    """
+    await conn.execute(query_rso)
+    print("Tabela de autorizações RSO criada/checada com sucesso")
 
     try:
         await conn.execute("ALTER TABLE jogadores_monitorados ADD COLUMN punicoes_md3 INTEGER DEFAULT 0;")
@@ -451,7 +466,42 @@ async def pegar_cargo_servidor(guild_id: int):
     query = "SELECT alert_role_id FROM configuracoes_servidor WHERE guild_id = $1"
     registro = await conn.fetchrow(query, guild_id)
     await conn.close()
-    
+
     if registro and registro['alert_role_id']:
         return registro['alert_role_id']
     return None
+
+
+# ─── RSO OAuth ────────────────────────────────────────────────────────────────
+
+async def registrar_autorizacao_rso(puuid: str, game_name: str, tag_line: str,
+                                     access_token: str, refresh_token: str | None,
+                                     expires_in: int):
+    """Salva ou atualiza a autorização RSO de um jogador."""
+    expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    conn = await asyncpg.connect(DATABASE_URL)
+    query = """
+        INSERT INTO autorizacoes_rso
+            (riot_puuid, riot_game_name, riot_tag_line, access_token, refresh_token, token_expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (riot_puuid) DO UPDATE SET
+            riot_game_name   = EXCLUDED.riot_game_name,
+            riot_tag_line    = EXCLUDED.riot_tag_line,
+            access_token     = EXCLUDED.access_token,
+            refresh_token    = EXCLUDED.refresh_token,
+            token_expires_at = EXCLUDED.token_expires_at,
+            authorized_at    = NOW();
+    """
+    await conn.execute(query, puuid, game_name, tag_line, access_token, refresh_token, expires_at)
+    await conn.close()
+    print(f"Autorização RSO salva para {game_name}#{tag_line}")
+
+
+async def verificar_autorizacao_rso(puuid: str) -> bool:
+    """Retorna True se o jogador já autorizou o Explanator via RSO."""
+    conn = await asyncpg.connect(DATABASE_URL)
+    registro = await conn.fetchrow(
+        "SELECT 1 FROM autorizacoes_rso WHERE riot_puuid = $1", puuid
+    )
+    await conn.close()
+    return registro is not None

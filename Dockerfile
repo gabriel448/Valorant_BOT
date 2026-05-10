@@ -19,4 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 6. Copia todos os códigos (main.py, banco.py, .env, etc) para lá
 COPY . .
 
+# Porta do servidor web OAuth RSO
+EXPOSE 8080
+
 CMD ["python", "main.py"]

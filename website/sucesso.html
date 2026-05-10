@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autorizado! — Explanator</title>
+  <link rel="icon" type="image/png" href="assets/Explanator-Avatar-01-Solid.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-mark">E</span>
+        <span class="logo-text">EXPLANATOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="sobre.html" class="nav-link">Sobre</a>
+        <a href="autorizar.html" class="nav-link">Autorizar</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn btn-nav">Adicionar ao Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO SUCCESS -->
+  <section class="hero" style="min-height:100vh; display:flex; align-items:center;">
+    <div class="hero-noise"></div>
+    <div class="hero-glow glow-red" style="opacity:0.5;"></div>
+    <div class="hero-glow glow-purple" style="opacity:0.4;"></div>
+
+    <div style="position:relative; z-index:1; max-width:1100px; width:100%; margin:0 auto; padding:100px 24px 80px; display:flex; gap:60px; align-items:center;">
+
+      <!-- Texto -->
+      <div style="flex:1; max-width:540px;">
+        <div class="hero-tag">[ Autorização Concluída · RSO ]</div>
+        <h1 class="hero-title" style="margin-bottom:16px;">
+          Conta <span class="text-red">Autorizada</span>
+        </h1>
+        <p id="msg-jogador" class="hero-subtitle" style="margin-bottom:12px;">
+          <!-- preenchido pelo JS -->
+        </p>
+        <p class="hero-subtitle" style="margin-bottom:36px;">
+          O Explanator agora tem permissão para monitorar suas partidas. Peça para um admin do seu servidor usar <code>/cadastrar-alvo</code> com o seu Riot ID para ativar o julgamento.
+        </p>
+        <div class="hero-actions">
+          <a href="index.html" class="btn btn-primary">Voltar ao início</a>
+          <a href="autorizar.html" class="btn btn-ghost">Autorizar outra conta</a>
+        </div>
+      </div>
+
+      <!-- Card flutuante -->
+      <div class="hero-card-float">
+        <div class="notif-card">
+          <div class="notif-header">
+            <span class="notif-dot gold"></span>
+            <span class="notif-label gold">AUTORIZADO</span>
+          </div>
+          <div class="notif-player">
+            <div class="notif-avatar gold" id="card-avatar">?</div>
+            <div>
+              <div class="notif-name" id="card-nome">Carregando...</div>
+              <div class="notif-sub">Conta Riot verificada</div>
+            </div>
+          </div>
+          <p class="notif-text">"Prepare-se. O juiz está de olho em cada partida sua a partir de agora."</p>
+          <div class="notif-footer">
+            <span class="tag gold">RSO Ativo</span>
+            <span class="tag gray">Aguardando /cadastrar-alvo</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="nav-logo">
+          <span class="logo-mark">E</span>
+          <span class="logo-text">EXPLANATOR</span>
+        </span>
+        <span class="footer-tagline">O JUIZ DO LOBBY</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-copy">Feito para humilhar com carinho.</span>
+        <div class="footer-links">
+          <a href="privacidade.html" class="footer-link">Privacidade</a>
+          <span class="footer-sep">·</span>
+          <a href="mailto:soooosa0610@gmail.com" class="footer-link">soooosa0610@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const player = params.get("player") || "";
+
+    if (player) {
+      const inicial = player.charAt(0).toUpperCase();
+      document.getElementById("card-avatar").textContent = inicial;
+      document.getElementById("card-nome").textContent = player;
+      document.getElementById("msg-jogador").textContent =
+        `A conta "${player}" está registrada com sucesso no Explanator.`;
+    } else {
+      document.getElementById("msg-jogador").textContent =
+        "Sua conta Riot foi registrada com sucesso no Explanator.";
+      document.getElementById("card-nome").textContent = "Jogador";
+    }
+  </script>
+</body>
+</html>

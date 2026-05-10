@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autorizar Monitoramento — Explanator</title>
+  <link rel="icon" type="image/png" href="assets/Explanator-Avatar-01-Solid.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-mark">E</span>
+        <span class="logo-text">EXPLANATOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="sobre.html" class="nav-link">Sobre</a>
+        <a href="autorizar.html" class="nav-link active">Autorizar</a>
+        <a href="https://discord.com/oauth2/authorize?client_id=1485752489520136362&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="btn btn-nav">Adicionar ao Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div class="hero-noise"></div>
+    <div class="container">
+      <div class="section-label red-label">[ Acesso Oficial · Riot Games ]</div>
+      <h1 class="page-hero-title">Autorizar <span class="text-red">Monitoramento</span></h1>
+      <p class="page-hero-sub">
+        Conecte sua conta Riot para que o Explanator possa monitorar suas partidas de Valorant.
+      </p>
+    </div>
+    <div class="page-hero-stamp">
+      <span>EXPLANATOR</span>
+      <span class="stamp-sub">// RSO AUTH</span>
+    </div>
+  </div>
+
+  <!-- ERRO BANNER (aparece só se ?error=1) -->
+  <div id="erro-banner" style="display:none; background:rgba(255,70,85,0.08); border-bottom:1px solid rgba(255,70,85,0.2); padding:16px 24px; text-align:center;">
+    <p style="color:var(--red); font-size:0.9rem; font-weight:600;">
+      Autorização cancelada ou falhou. Tente novamente clicando no botão abaixo.
+    </p>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <section class="section">
+    <div class="container">
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:start; max-width:960px;">
+
+        <!-- LEFT: explicação -->
+        <div>
+          <div class="section-label" style="margin-bottom:20px;">O que acontece ao autorizar</div>
+
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            <div class="antirank-item">
+              <div class="antirank-bullet red"></div>
+              <div>
+                <strong style="display:block; margin-bottom:4px;">Identificação da conta</strong>
+                <span style="font-size:0.88rem;">O Explanator lê seu Riot ID (nome + tag) e PUUID para vincular suas partidas. Nenhuma senha é acessada.</span>
+              </div>
+            </div>
+            <div class="antirank-item">
+              <div class="antirank-bullet red"></div>
+              <div>
+                <strong style="display:block; margin-bottom:4px;">Consentimento explícito</strong>
+                <span style="font-size:0.88rem;">Você autoriza na própria tela da Riot Games — o Explanator nunca vê suas credenciais.</span>
+              </div>
+            </div>
+            <div class="antirank-item">
+              <div class="antirank-bullet red"></div>
+              <div>
+                <strong style="display:block; margin-bottom:4px;">Monitoramento de partidas</strong>
+                <span style="font-size:0.88rem;">Após autorizar, um admin do seu servidor poderá te adicionar com <code>/cadastrar-alvo</code> para começar o julgamento.</span>
+              </div>
+            </div>
+            <div class="antirank-item">
+              <div class="antirank-bullet gray"></div>
+              <div>
+                <strong style="display:block; margin-bottom:4px;">Revogação</strong>
+                <span style="font-size:0.88rem;">Você pode revogar a qualquer momento em <a href="https://account.riotgames.com" target="_blank" class="privacy-link" rel="noopener">account.riotgames.com</a> → Aplicativos Conectados.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: ação -->
+        <div>
+          <div style="background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius-lg); padding:36px; text-align:center;">
+            <div style="font-size:3rem; margin-bottom:16px;">🔐</div>
+            <h2 style="font-size:1.3rem; font-weight:800; color:#fff; margin-bottom:10px;">Login com Riot</h2>
+            <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-bottom:28px;">
+              Você será redirecionado para a página oficial da Riot Games para autorizar o acesso. Seguro e controlado pela Riot.
+            </p>
+
+            <a id="btn-autorizar" href="#" class="btn btn-primary" style="width:100%; justify-content:center; font-size:1rem; padding:16px 28px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Autorizar com Riot Games
+            </a>
+
+            <p style="margin-top:16px; font-size:0.75rem; color:var(--text-muted);">
+              Ao continuar, você concorda com nossa
+              <a href="privacidade.html" class="privacy-link">Política de Privacidade</a>.
+            </p>
+          </div>
+
+          <!-- Passo a passo pós-autorização -->
+          <div style="margin-top:28px; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px;">
+            <div class="section-label" style="margin-bottom:14px;">Depois de autorizar</div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px; font-size:0.88rem; color:var(--text-muted);">
+                <span style="background:rgba(255,70,85,0.15); color:var(--red); font-weight:700; font-size:0.75rem; padding:3px 10px; border-radius:100px; flex-shrink:0;">1</span>
+                Sua conta é registrada como autorizada
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; font-size:0.88rem; color:var(--text-muted);">
+                <span style="background:rgba(255,70,85,0.15); color:var(--red); font-weight:700; font-size:0.75rem; padding:3px 10px; border-radius:100px; flex-shrink:0;">2</span>
+                Peça para um admin usar <code>/cadastrar-alvo</code> com seu Riot ID
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; font-size:0.88rem; color:var(--text-muted);">
+                <span style="background:rgba(255,70,85,0.15); color:var(--red); font-weight:700; font-size:0.75rem; padding:3px 10px; border-radius:100px; flex-shrink:0;">3</span>
+                O julgamento começa automaticamente
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="nav-logo">
+          <span class="logo-mark">E</span>
+          <span class="logo-text">EXPLANATOR</span>
+        </span>
+        <span class="footer-tagline">O JUIZ DO LOBBY</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-copy">Feito para humilhar com carinho.</span>
+        <div class="footer-links">
+          <a href="privacidade.html" class="footer-link">Privacidade</a>
+          <span class="footer-sep">·</span>
+          <a href="mailto:soooosa0610@gmail.com" class="footer-link">soooosa0610@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // URL do backend — troque pela URL pública do seu servidor
+    const BACKEND_URL = "https://SEU_BACKEND_URL";
+
+    document.getElementById("btn-autorizar").href = BACKEND_URL + "/auth/riot";
+
+    // mostra banner de erro se ?error=1 na URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "1") {
+      document.getElementById("erro-banner").style.display = "block";
+    }
+  </script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import time
 import random
 
 from database import limpar_dados_servidor, alterar_pontos_explanator, iniciar_banco, pegar_todos_alvos, pegar_canais_e_cargos_do_jogador, atualizar_match_id
+from web_server import iniciar_servidor_web
 from api import pegar_partidas_recentes, obter_detalhes_partida
 from collections import deque
 from comandos import configurar_comandos
@@ -48,6 +49,8 @@ async def on_ready():
     for jogador in jogadores:
         if jogador['last_match_id']:
             cache_partidas_vistas.append(f"{jogador['riot_puuid']}_{jogador['last_match_id']}")
+
+    await iniciar_servidor_web()
 
     print(f'Sucesso - Bot {client.user.name} acordou e esta online no Discord')
     print('Aguardando informacaoes')
