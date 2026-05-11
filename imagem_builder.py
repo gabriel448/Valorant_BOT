@@ -56,7 +56,7 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
 
     # ── FONTES ──────────────────────────────────────────────────────────────
     try:
-        f_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 44)
+        f_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 36)
         f_pos    = ImageFont.truetype("LiberationSans-Bold.ttf", 42)
         f_nome   = ImageFont.truetype("LiberationSans-Bold.ttf", 34)
         f_pts    = ImageFont.truetype("LiberationSans-Bold.ttf", 38)
@@ -68,26 +68,19 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
     cx     = largura // 2
     margin = 30
 
-    # Trava: trunca o título antes de desenhar caso ultrapasse os limites
+    # Trava: ocupa no máximo 75% da largura da imagem
     titulo_original = titulo
-    max_titulo_w    = largura - 80
+    max_titulo_w    = int(largura * 0.75)
     try:
         while len(titulo) > 3 and draw.textlength(titulo, font=f_titulo) > max_titulo_w:
             titulo = titulo[:-1]
         if titulo != titulo_original:
             titulo = titulo.rstrip() + "..."
     except Exception:
-        if len(titulo) > 40:
-            titulo = titulo[:37] + "..."
+        if len(titulo) > 32:
+            titulo = titulo[:29] + "..."
 
-    # Painel de fundo do título
-    draw.rectangle([(0, 8), (largura, altura_titulo - 6)], fill=(18, 18, 28, 255))
-    draw.rectangle([(6,            8), (10,           altura_titulo - 6)], fill=RED)
-    draw.rectangle([(largura - 10, 8), (largura - 6,  altura_titulo - 6)], fill=RED)
-
-    # Sombra + texto em dourado
-    draw.text((cx + 2, 56), titulo, font=f_titulo, fill=RED_DARK, anchor="mm")
-    draw.text((cx,     54), titulo, font=f_titulo, fill=GOLD,     anchor="mm")
+    draw.text((cx, 56), titulo, font=f_titulo, fill=WHITE, anchor="mm")
 
     # Linha decorativa abaixo
     try:
