@@ -12,88 +12,153 @@ async def baixar_imagem(url):
     return None
 
 async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
-    """
-    Constrói a imagem com banners, gradientes e os avatares.
-    'jogadores' deve ser uma lista de dicts: [{'nome': 'Sacy', 'rank': 'Ouro 1', 'banner_url': '...', 'icon_url': '...'}]
-    """
-    
-    largura = 1200 
-    
-    altura_linha = 100
-    espaco = 10
-    altura_total = (altura_linha + espaco) * len(jogadores) + 120 # +120 pro título
-    
-    # Cria o canvas de fundo escuro
-    fundo = Image.new('RGBA', (largura, altura_total), (30, 30, 30, 255))
+    # ── PALETA VALORANT ──────────────────────────────────────────────────────
+    RED         = (255, 70, 85)
+    RED_DARK    = (130, 25, 35)
+    GOLD        = (255, 205, 50)
+    SILVER      = (200, 200, 220)
+    BRONZE      = (205, 127, 50)
+    BG          = (8, 8, 14)
+    PANEL_A     = (22, 22, 35)
+    PANEL_B     = (14, 14, 22)
+    WHITE       = (238, 238, 252)
+    GRAY        = (105, 105, 128)
+    ACCENT_LINE = (45, 45, 62)
+    BLUE_LIGHT  = (100, 180, 255)
+
+    largura       = 1200
+    altura_titulo = 115
+    altura_linha  = 110
+    espaco        = 8
+    altura_total  = altura_titulo + (altura_linha + espaco) * len(jogadores) + 50
+
+    fundo = Image.new('RGBA', (largura, altura_total), BG + (255,))
+    draw  = ImageDraw.Draw(fundo)
+
+    # ── GRADIENTE DE FUNDO ──────────────────────────────────────────────────
+    strip = 8
+    for y in range(0, altura_total, strip):
+        t = y / altura_total
+        r = int(8  + 6  * (1 - t))
+        g = int(8  + 4  * (1 - t))
+        b = int(14 + 10 * (1 - t))
+        draw.rectangle([(0, y), (largura, min(y + strip, altura_total))], fill=(r, g, b, 255))
     draw = ImageDraw.Draw(fundo)
-    
-    # Tenta carregar fontes (se não achar, usa padrões claros)
+
+    # ── BORDA SUPERIOR ──────────────────────────────────────────────────────
+    draw.rectangle([(0, 0), (largura, 5)], fill=RED)
+    draw.rectangle([(0, 6), (largura, 7)], fill=RED_DARK)
+
+    # ── TRIÂNGULOS DE CANTO ──────────────────────────────────────────────────
+    tri = 80
+    draw.polygon([(0, 0), (tri, 0), (0, tri)], fill=RED)
+    draw.polygon([(largura, 0), (largura - tri, 0), (largura, tri)], fill=RED)
+
+    # ── FONTES ──────────────────────────────────────────────────────────────
     try:
-        fonte_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 35) # Maior e mais negrito
-        fonte_texto = ImageFont.truetype("LiberationSans-Regular.ttf", 35)
-    except:
-        fonte_titulo = ImageFont.load_default()
-        fonte_texto = ImageFont.load_default()
-        
-    # Desenha o Título 'RANKING EXPLANATOR - [Nome do Servidor]'
-    draw.text((largura//2, 60), f"{titulo}", font=fonte_titulo, fill=(255, 255, 255), anchor="mm")
-    
-    y_atual = 120 # Ajustado para baixo do título
-    
+        f_titulo = ImageFont.truetype("LiberationSans-Bold.ttf", 44)
+        f_pos    = ImageFont.truetype("LiberationSans-Bold.ttf", 42)
+        f_nome   = ImageFont.truetype("LiberationSans-Bold.ttf", 34)
+        f_pts    = ImageFont.truetype("LiberationSans-Bold.ttf", 38)
+    except Exception:
+        _fb = ImageFont.load_default()
+        f_titulo = f_pos = f_nome = f_pts = _fb
+
+    # ── TÍTULO ──────────────────────────────────────────────────────────────
+    cx = largura // 2
+    draw.text((cx, 56), titulo, font=f_titulo, fill=WHITE, anchor="mm")
+
+    try:
+        tw = int(draw.textlength(titulo, font=f_titulo))
+    except Exception:
+        tw = len(titulo) * 22
+    line_y = 86
+    margin = 30
+    draw.line([(cx - tw // 2 - margin, line_y), (cx + tw // 2 + margin, line_y)], fill=RED, width=2)
+    d = 7
+    for ox in [cx - tw // 2 - margin - 14, cx + tw // 2 + margin + 14]:
+        draw.polygon([(ox, line_y - d), (ox + d, line_y), (ox, line_y + d), (ox - d, line_y)], fill=RED)
+
+    # ── MAPEAMENTO DE COR POR POSIÇÃO ────────────────────────────────────────
+    pos_colors = {1: GOLD, 2: SILVER, 3: BRONZE}
+
+    y_atual = altura_titulo
+
     for posicao, jog in enumerate(jogadores, start=1):
-        # Baixa assets (em produção, cachearia ou buscaria na API)
-        # Para demonstração, usamos imagens de exemplo
-        banner = await baixar_imagem(jog['banner_url'])
-        icone_elo = await baixar_imagem(jog['icon_url']) # Ícone do Rank Explanator
-        
-        linha = Image.new('RGBA', (largura, altura_linha), (0, 0, 0, 0))
-        draw_linha = ImageDraw.Draw(linha)
-        
+        banner    = await baixar_imagem(jog['banner_url'])
+        icone_elo = await baixar_imagem(jog['icon_url'])
+
+        pos_color = pos_colors.get(posicao, BLUE_LIGHT)
+        bg_panel  = PANEL_A if posicao % 2 == 0 else PANEL_B
+
+        linha  = Image.new('RGBA', (largura, altura_linha), (0, 0, 0, 0))
+        draw_l = ImageDraw.Draw(linha)
+
+        # ── BANNER DE FUNDO COM GRADIENTE ──────────────────────────────────
         if banner:
-            # Redimensiona o banner e recorta o meio
-            banner = banner.resize((largura, int(largura * banner.height / banner.width)))
-            banner = banner.crop((0, banner.height//2 - altura_linha//2, largura, banner.height//2 + altura_linha//2))
-            
-            # --- GRADIENTE CORRIGIDO ---
-            # Cria uma máscara que começa sólida e escura e desaparece suavemente.
-            gradiente = Image.new('L', (largura, altura_linha))
-            ponto_transparencia_comeca = int(largura * 0.4) # Começa a desaparecer a 40% da largura
+            bw, bh = banner.size
+            banner = banner.resize((largura, max(altura_linha, int(largura * bh / bw)))).convert("RGBA")
+            mid_h  = banner.height // 2
+            banner = banner.crop((0, mid_h - altura_linha // 2, largura, mid_h + altura_linha // 2))
+
+            grad_pixels = []
             for x in range(largura):
-                if x < ponto_transparencia_comeca:
-                    alpha = 255 # Sólido na esquerda
+                if x < int(largura * 0.45):
+                    grad_pixels.append(225)
                 else:
-                    # Alpha diminui linearmente até 0 no final
-                    alpha = int(255 - ((x - ponto_transparencia_comeca) / (largura - ponto_transparencia_comeca)) * 255)
-                for y in range(altura_linha):
-                    gradiente.putpixel((x, y), alpha)
-            
-            fundo_escuro_solido = Image.new('RGBA', (largura, altura_linha), (20, 20, 20, 255))
-            # Mescla o banner com o fundo escuro sólido usando a máscara de gradiente corrigida
+                    t_g = (x - int(largura * 0.45)) / (largura * 0.55)
+                    grad_pixels.append(int(225 - t_g * 160))
+            grad_row  = Image.new('L', (largura, 1))
+            grad_row.putdata(grad_pixels)
+            gradiente = grad_row.resize((largura, altura_linha))
+
+            escuro = Image.new('RGBA', (largura, altura_linha), bg_panel + (255,))
             linha.paste(banner, (0, 0))
-            linha.paste(fundo_escuro_solido, (0, 0), mask=gradiente)
-            
-        # --- TEXTO FORMATADO ---
-        # Posicao | Nome
-        posicao_texto = f"#{posicao}"
-        draw_linha.text((30, altura_linha//2), posicao_texto, font=fonte_texto, fill=(50, 200, 255), anchor="lm") # Azul claro Valorant
-        
-        nome_texto = f"{jog['nome']}"
-        draw_linha.text((120, altura_linha//2), nome_texto, font=fonte_texto, fill=(255, 255, 255), anchor="lm")
-        
-        # --- ÍCONE DE ELO VISÍVEL ---
+            linha.paste(escuro, (0, 0), mask=gradiente)
+        else:
+            draw_l.rectangle([(0, 0), (largura, altura_linha)], fill=bg_panel + (255,))
+
+        # ── BARRA LATERAL COLORIDA (por posição) ──────────────────────────
+        draw_l.rectangle([(0, 0), (6, altura_linha)], fill=pos_color)
+
+        # ── NÚMERO DA POSIÇÃO ──────────────────────────────────────────────
+        y_mid = altura_linha // 2
+        draw_l.text((62, y_mid), f"#{posicao}", font=f_pos, fill=pos_color, anchor="mm")
+
+        # Separador vertical
+        draw_l.line([(112, 10), (112, altura_linha - 10)], fill=ACCENT_LINE, width=1)
+
+        # ── NOME DO JOGADOR ────────────────────────────────────────────────
+        draw_l.text((135, y_mid), jog['nome'], font=f_nome, fill=WHITE, anchor="lm")
+
+        # ── PONTOS EXPLANATOR ──────────────────────────────────────────────
+        if 'pontos' in jog:
+            pts_color = pos_color if posicao <= 3 else (170, 195, 240)
+            draw_l.text((950, y_mid), str(jog['pontos']), font=f_pts, fill=pts_color, anchor="mm")
+
+        # ── ÍCONE DO ELO ───────────────────────────────────────────────────
         if icone_elo:
-            icone_elo = icone_elo.resize((80, 80)).convert("RGBA")
-            linha.paste(icone_elo, (largura - 120, 10), mask=icone_elo)
-            
-        # Cola a linha construída no fundo principal
+            sz  = 82
+            icone_elo = icone_elo.resize((sz, sz)).convert("RGBA")
+            ix  = largura - sz - 18
+            iy  = (altura_linha - sz) // 2
+            linha.paste(icone_elo, (ix, iy), mask=icone_elo)
+
+        draw_l.line([(6, altura_linha - 1), (largura - 1, altura_linha - 1)], fill=ACCENT_LINE, width=1)
+
         fundo.paste(linha, (0, y_atual), mask=linha)
         y_atual += altura_linha + espaco
-        
-    # Converte para Bytes para enviar pelo Discord
+
+    # ── RODAPÉ ──────────────────────────────────────────────────────────────
+    draw = ImageDraw.Draw(fundo)
+    draw.rectangle([(0, altura_total - 5), (largura, altura_total)], fill=RED)
+    tri3 = 50
+    draw.polygon([(0, altura_total), (0, altura_total - tri3), (tri3, altura_total)], fill=RED)
+    draw.polygon([(largura, altura_total), (largura - tri3, altura_total), (largura, altura_total - tri3)], fill=RED)
+
     buffer = io.BytesIO()
     fundo.save(buffer, format="PNG")
     buffer.seek(0)
-    
     return buffer
 
 async def criar_imagem_comparacao(vencedor_url, perdedor_url, nome_vencedor, nome_perdedor):

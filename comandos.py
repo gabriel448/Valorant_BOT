@@ -518,6 +518,7 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
             lista_para_imagem.append({
                 'nome': nome_completo,
                 'rank': rank_nome,
+                'pontos': pontos,
                 'banner_url': banner_url,
                 'icon_url': icon_url
             })
