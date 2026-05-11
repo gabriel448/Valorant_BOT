@@ -148,6 +148,11 @@ async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
                 if arma_usada in armas_perdoadas:
                     kills_com_armas_perdoadas += 1
 
+        kills_primeiros_10_rounds = sum(
+            1 for k in kill_events
+            if k.get('killer_puuid') == puuid and k.get('round', 99) < 10
+        )
+
         e_mono_sniper = False
         if kills > 0:
             porcentagem_kills_sniper = (kills_com_armas_perdoadas/kills) * 100
@@ -176,7 +181,8 @@ async def pegar_dados_do_jogador(dados_partida, puuid, jogador):
             bodyshots=bodyshots,
             legshots=legshots,
             rounds_jogados=rounds_jogados,
-            puuid=puuid
+            puuid=puuid,
+            kills_primeiros_10_rounds=kills_primeiros_10_rounds
         )
     print(f'Jogador {nome_jogador} nao encontrado na partida')
     return None
@@ -231,11 +237,13 @@ async def verificar_regras_punicao(dados_elo: DadosElo ,dados_jogador: DadosJoga
     if elo_atual_int != elo_banco_int:
         await atualizar_tier_jogador(puuid, elo_atual_int)
 
-    if rounds_jogados >= 10 and kills == 0:
+    kills_primeiros_10_rounds = dados_jogador.kills_primeiros_10_rounds
+
+    if rounds_jogados >= 10 and kills_primeiros_10_rounds == 0:
         punitivo = True
         motivos_punicao.append(f"jogou {rounds_jogados} rounds e fez ZERO abates.")
         motivos_punicao_IA.append(f"JOGADOR JOGOU {rounds_jogados} E FEZ ZERO ABATES")
-        
+
     elif kd_ratio <= 0.5:
         punitivo = True
         motivos_punicao.append(f"K/D de {kd_ratio:.2f} ({kills}/{deaths}/{assists}).")

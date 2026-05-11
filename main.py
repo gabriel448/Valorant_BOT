@@ -136,7 +136,14 @@ async def monitoramento_continuo():
                 if not dados_partida:
                     print(f'Erro: dados da partida do jogador {nome_jogador} Nulos')
                     continue
-                
+
+                rounds_da_partida = dados_partida.get('data', {}).get('metadata', {}).get('rounds_played', 999)
+                if rounds_da_partida < 10:
+                    print(f"[{nome_jogador}] Partida ignorada: {rounds_da_partida} rounds (remake/desistência). Sem julgamento.")
+                    await atualizar_match_id(puuid, novo_match_id)
+                    cache_partidas_vistas.append(f"{puuid}_{novo_match_id}")
+                    continue
+
                 #pega informacoes do desempenho do jogador na partida para serem julgadas
                 dados_jogador = await pegar_dados_do_jogador(dados_partida, puuid, jogador)
                 

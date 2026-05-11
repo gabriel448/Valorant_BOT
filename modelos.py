@@ -17,6 +17,7 @@ class DadosJogador:
     headshots: Any
     bodyshots: Any
     legshots: Any
+    kills_primeiros_10_rounds: int = 0
 
 
 @dataclass

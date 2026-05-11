@@ -690,26 +690,39 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         icon_proximo_url = pegar_url_elo(indice_proximo + 3, temporada_atual)
 
         # Gerar a imagem de progresso
-        imagem_progresso = await criar_imagem_progresso_explanator(
-            pontos, 
-            rank_nome_explanator, 
-            rank_anterior, 
-            rank_proximo, 
-            pegar_url_elo(indice_atual + 3, temporada_atual), # Sempre usa o ícone do rank real na barra
-            icon_anterior_url, 
-            icon_proximo_url
-        )
+        # Durante a MD3, não revelar rank real nem pontos — tudo é sigiloso até completar
+        if alertas_md3 < 3:
+            unranked_url = pegar_url_elo(0, temporada_atual)
+            imagem_progresso = await criar_imagem_progresso_explanator(
+                alertas_md3,          # barra reflete progresso da MD3 (0/1/2), não pontos reais
+                f"MD3 ({alertas_md3}/3)",
+                "",
+                "",
+                unranked_url,
+                None,
+                None,
+            )
+        else:
+            imagem_progresso = await criar_imagem_progresso_explanator(
+                pontos,
+                rank_nome_explanator,
+                rank_anterior,
+                rank_proximo,
+                pegar_url_elo(indice_atual + 3, temporada_atual),
+                icon_anterior_url,
+                icon_proximo_url
+            )
 
         embed = discord.Embed(
             title=f"📋 Ficha de Status: {status['nome_riot']}",
             description=f"Estatísticas do jogador no Explanator.",
             color=0x8A2BE2
         )
-        
+
         # avatar do discord
         avatar_url = usuario.avatar.url if usuario.avatar else usuario.default_avatar.url
         embed.set_thumbnail(url=avatar_url)
-        
+
         # Ícone do Elo no Author
         if icon_atual_url:
             embed.set_author(name=rank_exibicao, icon_url=icon_atual_url)
@@ -717,7 +730,9 @@ def configurar_comandos(tree: app_commands.CommandTree, client: discord.Client, 
         # Campos de informação
         embed.add_field(name="🏆 Rank Atual", value=f"**{rank_exibicao}**", inline=True)
         embed.add_field(name="⚖️ Taxa P/E", value=f"**{pe_ratio:.2f}**", inline=True)
-        embed.add_field(name="📊 Pontos", value=f"**{pontos}**", inline=True)
+        # Pontos são sigilosos até a MD3 ser concluída
+        pontos_exibicao = f"**{pontos}**" if alertas_md3 >= 3 else "**🔒 Sigiloso**"
+        embed.add_field(name="📊 Pontos", value=pontos_exibicao, inline=True)
         
         embed.add_field(name="🚨 Punições", value=f"{punicoes}", inline=True)
         embed.add_field(name="🌟 Elogios", value=f"{elogios}", inline=True)
