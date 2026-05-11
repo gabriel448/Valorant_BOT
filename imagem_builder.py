@@ -65,15 +65,36 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
         f_titulo = f_pos = f_nome = f_pts = _fb
 
     # ── TÍTULO ──────────────────────────────────────────────────────────────
-    cx = largura // 2
-    draw.text((cx, 56), titulo, font=f_titulo, fill=WHITE, anchor="mm")
+    cx     = largura // 2
+    margin = 30
 
+    # Trava: trunca o título antes de desenhar caso ultrapasse os limites
+    titulo_original = titulo
+    max_titulo_w    = largura - 80
+    try:
+        while len(titulo) > 3 and draw.textlength(titulo, font=f_titulo) > max_titulo_w:
+            titulo = titulo[:-1]
+        if titulo != titulo_original:
+            titulo = titulo.rstrip() + "..."
+    except Exception:
+        if len(titulo) > 40:
+            titulo = titulo[:37] + "..."
+
+    # Painel de fundo do título
+    draw.rectangle([(0, 8), (largura, altura_titulo - 6)], fill=(18, 18, 28, 255))
+    draw.rectangle([(6,            8), (10,           altura_titulo - 6)], fill=RED)
+    draw.rectangle([(largura - 10, 8), (largura - 6,  altura_titulo - 6)], fill=RED)
+
+    # Sombra + texto em dourado
+    draw.text((cx + 2, 56), titulo, font=f_titulo, fill=RED_DARK, anchor="mm")
+    draw.text((cx,     54), titulo, font=f_titulo, fill=GOLD,     anchor="mm")
+
+    # Linha decorativa abaixo
     try:
         tw = int(draw.textlength(titulo, font=f_titulo))
     except Exception:
         tw = len(titulo) * 22
-    line_y = 86
-    margin = 30
+    line_y = 84
     draw.line([(cx - tw // 2 - margin, line_y), (cx + tw // 2 + margin, line_y)], fill=RED, width=2)
     d = 7
     for ox in [cx - tw // 2 - margin - 14, cx + tw // 2 + margin + 14]:
@@ -131,8 +152,9 @@ async def criar_imagem_leaderboard(jogadores, titulo="LEADERBOARD"):
         # ── NOME DO JOGADOR ────────────────────────────────────────────────
         draw_l.text((135, y_mid), jog['nome'], font=f_nome, fill=WHITE, anchor="lm")
 
-        # ── PONTOS EXPLANATOR ──────────────────────────────────────────────
-        if 'pontos' in jog:
+        # ── PONTOS EXPLANATOR (só para quem completou a MD3) ──────────────
+        sem_elo = jog.get('rank', '').startswith('MD3')
+        if 'pontos' in jog and not sem_elo:
             pts_color = pos_color if posicao <= 3 else (170, 195, 240)
             draw_l.text((950, y_mid), str(jog['pontos']), font=f_pts, fill=pts_color, anchor="mm")
 
